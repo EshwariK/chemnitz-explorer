@@ -1,0 +1,24 @@
+name: Update Cultural Sites Data
+
+on:
+  workflow_dispatch:   # Allow manual runs
+
+jobs:
+  import-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install node-fetch mongodb
+
+      - name: Run import script
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        run: node scripts/import.js

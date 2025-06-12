@@ -1,0 +1,49 @@
+[out:json][timeout:60];
+area["name"="Chemnitz"]["boundary"="administrative"]->.searchArea;
+(
+  // Museum
+  node["tourism"="museum"](area.searchArea);
+  way["tourism"="museum"](area.searchArea);
+  relation["tourism"="museum"](area.searchArea);
+
+  //Artwork
+  node["tourism"="artwork"](area.searchArea);
+  way["tourism"="artwork"](area.searchArea);
+  relation["tourism"="artwork"](area.searchArea);
+
+  // Gallery
+  node["tourism"="gallery"](area.searchArea);
+  way["tourism"="gallery"](area.searchArea);
+  relation["tourism"="gallery"](area.searchArea);
+
+  // Gallery
+  node["art_gallery"="yes"](area.searchArea);
+  way["art_gallery"="yes"](area.searchArea);
+  relation["art_gallery"="yes"](area.searchArea);
+
+  // Theatre
+  node["amenity"="theatre"](area.searchArea);
+  way["amenity"="theatre"](area.searchArea);
+  relation["amenity"="theatre"](area.searchArea);
+
+  // Restaurant
+  node["amenity"="restaurant"](area.searchArea);
+  way["amenity"="restaurant"](area.searchArea);
+  relation["amenity"="restaurant"](area.searchArea);
+
+  //Monument
+  node["historic"="monument"](area.searchArea);
+  way["historic"="monument"](area.searchArea);
+  relation["historic"="monument"](area.searchArea);
+
+  // Memorial
+  node["historic"="memorial"](area.searchArea);
+  way["historic"="memorial"](area.searchArea);
+  relation["historic"="memorial"](area.searchArea);
+
+  // Library
+  node["amenity"="library"](area.searchArea);
+  way["amenity"="library"](area.searchArea);
+  relation["amenity"="library"](area.searchArea);
+);
+out center;
