@@ -21,4 +21,4 @@ jobs:
       - name: Run import script
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
-        run: node scripts/import.js
+        run: node scripts/import.mjs
