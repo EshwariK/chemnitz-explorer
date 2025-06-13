@@ -2,6 +2,9 @@ import { requireAuth } from "@/lib/auth"
 import { UserProfile } from "@/components/user-profile"
 import { redirect } from "next/navigation"
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
+
 export default async function ProfilePage() {
   try {
     const user = await requireAuth()

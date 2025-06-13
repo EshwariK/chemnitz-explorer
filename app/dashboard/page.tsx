@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/auth"
 
 export default async function DashboardPage() {
   // This will redirect to login if not authenticated
-  const user = await requireAuth()
+  await requireAuth()
 
   return (
     <div className="container mx-auto px-4 py-12">

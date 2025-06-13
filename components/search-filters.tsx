@@ -22,7 +22,7 @@ export function SearchFilters() {
     <section id="search" className="space-y-6">
       <div className="text-center">
         <h2 className="text-3xl font-bold mb-2">Find Cultural Sites</h2>
-        <p className="text-muted-foreground">Search and filter through Chemnitz's cultural landmarks</p>
+        <p className="text-muted-foreground">Search and filter through Chemnitz&apos;s cultural landmarks</p>
       </div>
 
       <div className="max-w-4xl mx-auto">

@@ -3,6 +3,9 @@ import GithubProvider from "next-auth/providers/github"
 import GoogleProvider from "next-auth/providers/google"
 import { MongoDBAdapter } from "@auth/mongodb-adapter"
 import clientPromise from "@/lib/mongodb"
+import type { Session } from "next-auth"
+import type { JWT } from "next-auth/jwt"
+import type { User } from "next-auth"
 
 // Verify environment variables
 if (!process.env.NEXTAUTH_SECRET) {
@@ -40,14 +43,14 @@ export const authOptions = {
     strategy: "jwt" as const,
   },
   callbacks: {
-    async session({ session, token }: any) {
+    async session({ session, token }: { session: Session; token: JWT & { id?: string } }) {
       // Safe check for token before accessing properties
       if (session?.user && token?.sub) {
         session.user.id = token.sub
       }
       return session
     },
-    async jwt({ token, user }: any) {
+    async jwt({ token, user }: { token: JWT; user?: User & { id?: string } }) {
       if (user?.id) {
         token.id = user.id
       }

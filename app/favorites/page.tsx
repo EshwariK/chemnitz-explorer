@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth"
 
 export default async function FavoritesPage() {
   // This will redirect to login if not authenticated
-  const user = await requireAuth()
+  await requireAuth()
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -13,7 +13,7 @@ export default async function FavoritesPage() {
           <Heart className="h-8 w-8 text-red-500" />
           <h1 className="text-3xl font-bold">Your Favorites</h1>
         </div>
-        <p className="text-muted-foreground">Cultural sites you've saved for later exploration</p>
+        <p className="text-muted-foreground">Cultural sites you&apos;ve saved for later exploration</p>
       </div>
       <FavoritesList />
     </div>
