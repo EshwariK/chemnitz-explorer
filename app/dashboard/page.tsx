@@ -1,8 +1,12 @@
 import { DashboardStats } from "@/components/dashboard-stats"
 import { RecentActivity } from "@/components/recent-activity"
 import { BarChart3 } from "lucide-react"
+import { requireAuth } from "@/lib/auth"
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  // This will redirect to login if not authenticated
+  const user = await requireAuth()
+
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="mb-8">

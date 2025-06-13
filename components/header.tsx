@@ -3,11 +3,21 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { signOut, useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Menu, MapPin } from "lucide-react"
+import { Menu, MapPin, User, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const navigation = [
   { name: "Home", href: "/" },
@@ -19,6 +29,16 @@ const navigation = [
 export function Header() {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
+  const { data: session } = useSession()
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2)
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -47,9 +67,49 @@ export function Header() {
 
           <div className="flex items-center space-x-4">
             <ThemeToggle />
-            <Button asChild className="hidden md:inline-flex">
-              <Link href="/login">Login</Link>
-            </Button>
+
+            {session ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={session.user?.image || ""} alt={session.user?.name || ""} />
+                      <AvatarFallback>{session.user?.name ? getInitials(session.user.name) : "U"}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{session.user?.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{session.user?.email}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Dashboard</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/favorites">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Favorites</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer" onClick={() => signOut({ callbackUrl: "/" })}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button asChild className="hidden md:inline-flex">
+                <Link href="/login">Login</Link>
+              </Button>
+            )}
 
             {/* Mobile Navigation */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -74,11 +134,25 @@ export function Header() {
                       {item.name}
                     </Link>
                   ))}
-                  <Button asChild className="mt-4">
-                    <Link href="/login" onClick={() => setIsOpen(false)}>
-                      Login
-                    </Link>
-                  </Button>
+                  {!session ? (
+                    <Button asChild className="mt-4">
+                      <Link href="/login" onClick={() => setIsOpen(false)}>
+                        Login
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="mt-4"
+                      onClick={() => {
+                        signOut({ callbackUrl: "/" })
+                        setIsOpen(false)
+                      }}
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Log out
+                    </Button>
+                  )}
                 </nav>
               </SheetContent>
             </Sheet>

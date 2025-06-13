@@ -1,7 +1,11 @@
 import { FavoritesList } from "@/components/favorites-list"
 import { Heart } from "lucide-react"
+import { requireAuth } from "@/lib/auth"
 
-export default function FavoritesPage() {
+export default async function FavoritesPage() {
+  // This will redirect to login if not authenticated
+  const user = await requireAuth()
+
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="mb-8">
