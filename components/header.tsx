@@ -7,7 +7,7 @@ import { signOut, useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Menu, MapPin, User, LogOut } from "lucide-react"
+import { Menu, MapPin, User, LogOut, Settings, Heart } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   DropdownMenu,
@@ -87,14 +87,20 @@ export function Header() {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard">
+                    <Link href="/profile">
                       <User className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard">
+                      <Settings className="mr-2 h-4 w-4" />
                       <span>Dashboard</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/favorites">
-                      <User className="mr-2 h-4 w-4" />
+                      <Heart className="mr-2 h-4 w-4" />
                       <span>Favorites</span>
                     </Link>
                   </DropdownMenuItem>
@@ -141,17 +147,26 @@ export function Header() {
                       </Link>
                     </Button>
                   ) : (
-                    <Button
-                      variant="outline"
-                      className="mt-4"
-                      onClick={() => {
-                        signOut({ callbackUrl: "/" })
-                        setIsOpen(false)
-                      }}
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Log out
-                    </Button>
+                    <>
+                      <Link
+                        href="/profile"
+                        onClick={() => setIsOpen(false)}
+                        className="text-lg font-medium transition-colors hover:text-primary text-muted-foreground"
+                      >
+                        Profile
+                      </Link>
+                      <Button
+                        variant="outline"
+                        className="mt-4"
+                        onClick={() => {
+                          signOut({ callbackUrl: "/" })
+                          setIsOpen(false)
+                        }}
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Log out
+                      </Button>
+                    </>
                   )}
                 </nav>
               </SheetContent>

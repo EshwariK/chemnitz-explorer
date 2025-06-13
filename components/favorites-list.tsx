@@ -1,31 +1,12 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Heart, ExternalLink, Trash2 } from "lucide-react"
-
-const favoriteSites = [
-  {
-    id: 2,
-    title: "Museum of Natural History",
-    category: "Museum",
-    description: "Explore fascinating exhibits of natural specimens and geological formations from the region.",
-    dateAdded: "2024-01-15",
-  },
-  {
-    id: 4,
-    title: "Red Tower",
-    category: "Tourism Spots",
-    description: "Medieval tower and landmark offering panoramic views of the city center.",
-    dateAdded: "2024-01-10",
-  },
-  {
-    id: 6,
-    title: "Chemnitz Art Gallery",
-    category: "Art",
-    description: "Local artists showcase their contemporary works in this modern gallery space.",
-    dateAdded: "2024-01-08",
-  },
-]
+import { Heart, ExternalLink, Trash2, Loader2 } from "lucide-react"
+import { toast } from "sonner"
+import type { UserFavorite } from "@/lib/user-service"
 
 const categoryColors = {
   Theatre: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
@@ -35,7 +16,62 @@ const categoryColors = {
 }
 
 export function FavoritesList() {
-  if (favoriteSites.length === 0) {
+  const [favorites, setFavorites] = useState<UserFavorite[]>([])
+  const [loading, setLoading] = useState(true)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchFavorites()
+  }, [])
+
+  const fetchFavorites = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/user/favorites")
+      if (response.ok) {
+        const data = await response.json()
+        setFavorites(data)
+      } else {
+        toast.error("Failed to load favorites")
+      }
+    } catch (error) {
+      console.error("Error fetching favorites:", error)
+      toast.error("Failed to load favorites")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const removeFavorite = async (siteId: string) => {
+    try {
+      setRemovingId(siteId)
+      const response = await fetch(`/api/user/favorites?siteId=${siteId}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        setFavorites((prev) => prev.filter((fav) => fav.siteId !== siteId))
+        toast.success("Site removed from favorites")
+      } else {
+        toast.error("Failed to remove from favorites")
+      }
+    } catch (error) {
+      console.error("Error removing favorite:", error)
+      toast.error("Failed to remove from favorites")
+    } finally {
+      setRemovingId(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (favorites.length === 0) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12">
@@ -51,13 +87,16 @@ export function FavoritesList() {
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {favoriteSites.map((site) => (
-        <Card key={site.id}>
+      {favorites.map((site) => (
+        <Card key={site._id?.toString()}>
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between">
               <div className="space-y-2">
-                <CardTitle className="text-lg">{site.title}</CardTitle>
-                <Badge variant="secondary" className={categoryColors[site.category as keyof typeof categoryColors]}>
+                <CardTitle className="text-lg">{site.siteName}</CardTitle>
+                <Badge
+                  variant="secondary"
+                  className={categoryColors[site.category as keyof typeof categoryColors] || ""}
+                >
                   {site.category}
                 </Badge>
               </div>
@@ -76,8 +115,17 @@ export function FavoritesList() {
                 <ExternalLink className="h-4 w-4 mr-2" />
                 View Details
               </Button>
-              <Button variant="outline" size="sm">
-                <Trash2 className="h-4 w-4" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => removeFavorite(site.siteId)}
+                disabled={removingId === site.siteId}
+              >
+                {removingId === site.siteId ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
               </Button>
             </div>
           </CardContent>
