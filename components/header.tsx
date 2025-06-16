@@ -24,6 +24,7 @@ const navigation = [
   { name: "Map", href: "/map" },
   { name: "Favorites", href: "/favorites" },
   { name: "Dashboard", href: "/dashboard" },
+  { name: "API Docs", href: "/docs" },
 ]
 
 export function Header() {
