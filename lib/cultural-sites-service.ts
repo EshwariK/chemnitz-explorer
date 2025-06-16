@@ -1,5 +1,6 @@
 import clientPromise from "./mongodb"
 import { ObjectId } from "mongodb"
+import type { Filter } from "mongodb"
 
 export interface CulturalSite {
   _id?: ObjectId
@@ -12,7 +13,7 @@ export interface CulturalSite {
     lat: number
     lng: number
   }
-  tags: Record<string, any>
+  tags: Record<string, unknown>
   website?: string
   phone?: string
   openingHours?: string
@@ -53,10 +54,10 @@ export class CulturalSitesService {
   // Get all cultural sites with pagination and filtering
   static async getCulturalSites(filters: SearchFilters = {}, pagination: PaginationOptions = { page: 1, limit: 20 }) {
     const db = await this.getDb()
-    const collection = db.collection("CulturalSites")
+    const collection = db.collection<CulturalSite>("CulturalSites")
 
     // Build query
-    const query: any = {}
+    const query: Filter<CulturalSite> = {}
 
     // Category filter
     if (filters.category && filters.category !== "all") {
@@ -120,7 +121,7 @@ export class CulturalSitesService {
     try {
       const site = await collection.findOne({ _id: new ObjectId(id) })
       return site as CulturalSite | null
-    } catch (error) {
+    } catch {
       return null
     }
   }

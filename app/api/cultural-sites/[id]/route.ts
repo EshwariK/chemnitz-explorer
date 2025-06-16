@@ -34,9 +34,10 @@ import { CulturalSitesService } from "@/lib/cultural-sites-service"
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const site = await CulturalSitesService.getCulturalSiteById(params.id)
+    const id = (await params).id
+    const site = await CulturalSitesService.getCulturalSiteById(id)
 
     if (!site) {
       return NextResponse.json({ error: "Cultural site not found", code: "NOT_FOUND" }, { status: 404 })

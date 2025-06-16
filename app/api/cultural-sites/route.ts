@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { CulturalSitesService } from "@/lib/cultural-sites-service"
+import type { SearchFilters } from "@/lib/cultural-sites-service"
 
 /**
  * @swagger
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(100, Math.max(1, Number.parseInt(searchParams.get("limit") || "20")))
 
     // Parse filter parameters
-    const filters: any = {}
+    const filters: SearchFilters = {}
 
     const category = searchParams.get("category")
     if (category) {

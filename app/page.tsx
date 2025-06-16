@@ -6,6 +6,7 @@ import { SearchFilters } from "@/components/search-filters"
 import { MapPreview } from "@/components/map-preview"
 import { ResultsList } from "@/components/results-list"
 import type { CulturalSite } from "@/lib/cultural-sites-service"
+import type { SearchFilters as SearchFilterType } from "@/lib/cultural-sites-service"
 
 interface SearchState {
   sites: CulturalSite[]
@@ -51,7 +52,7 @@ export default function HomePage() {
     loadSites(1, {})
   }, [])
 
-  const loadSites = async (page: number, filters: any, append = false) => {
+  const loadSites = async (page: number, filters: SearchFilterType, append = false) => {
     setSearchState((prev) => ({ ...prev, loading: true }))
 
     try {
