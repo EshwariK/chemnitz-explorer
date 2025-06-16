@@ -57,3 +57,47 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Leaflet map styles */
+.leaflet-container {
+  font-family: inherit;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.leaflet-popup-tip {
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.1);
+}
+
+/* Custom marker styles */
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Dark mode support for map */
+.dark .leaflet-container {
+  filter: hue-rotate(180deg) invert(1);
+}
+
+.dark .leaflet-container .leaflet-control {
+  filter: hue-rotate(180deg) invert(1);
+}
+
+.dark .leaflet-popup-content-wrapper {
+  filter: hue-rotate(180deg) invert(1);
+}
+
+.dark .leaflet-popup-tip {
+  filter: hue-rotate(180deg) invert(1);
+}
+
+/* Smooth transitions for highlighted items */
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}

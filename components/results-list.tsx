@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Heart, ExternalLink, MapPin, Phone, Globe, Clock, Loader2 } from "lucide-react"
+import { Heart, ExternalLink, MapPin, Phone, Globe, Clock, Loader2, Map } from "lucide-react"
 import { toast } from "sonner"
 import { useSession } from "next-auth/react"
 import type { CulturalSite } from "@/lib/cultural-sites-service"
@@ -24,15 +24,17 @@ interface ResultsListProps {
   loading: boolean
   onLoadMore?: () => void
   hasMore?: boolean
+  onSiteClick?: (site: CulturalSite) => void
+  highlightedSiteId?: string | null
 }
 
-export function ResultsList({ sites, loading, onLoadMore, hasMore }: ResultsListProps) {
+export function ResultsList({ sites, loading, onLoadMore, hasMore, onSiteClick, highlightedSiteId }: ResultsListProps) {
   const { data: session } = useSession()
   const [favoritingIds, setFavoritingIds] = useState<Set<string>>(new Set())
 
   const handleFavorite = async (site: CulturalSite) => {
     if (!session) {
-      toast.error("Please log in to save favorites")
+      toast.info("Please log in to save favorites")
       return
     }
 
@@ -58,7 +60,7 @@ export function ResultsList({ sites, loading, onLoadMore, hasMore }: ResultsList
       if (response.ok) {
         const result = await response.json()
         if (result.alreadyExists) {
-          toast.error("This site is already in your favorites")
+          toast.info("This site is already in your favorites")
         } else {
           toast.success(`${site.name} has been added to your favorites`)
         }
@@ -107,6 +109,12 @@ export function ResultsList({ sites, loading, onLoadMore, hasMore }: ResultsList
     }
   }
 
+  const handleShowOnMap = (site: CulturalSite) => {
+    onSiteClick?.(site)
+    // Scroll to top to show the map
+    document.getElementById("search")?.scrollIntoView({ behavior: "smooth" })
+  }
+
   if (loading && sites.length === 0) {
     return (
       <div className="space-y-6">
@@ -137,9 +145,15 @@ export function ResultsList({ sites, loading, onLoadMore, hasMore }: ResultsList
         {sites.map((site) => {
           const siteId = site._id?.toString()
           const isFavoriting = siteId ? favoritingIds.has(siteId) : false
+          const isHighlighted = siteId === highlightedSiteId
 
           return (
-            <Card key={siteId} className="overflow-hidden">
+            <Card
+              key={siteId}
+              className={`overflow-hidden transition-all duration-200 ${
+                isHighlighted ? "ring-2 ring-primary shadow-lg" : ""
+              }`}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="space-y-2 flex-1">
@@ -198,6 +212,15 @@ export function ResultsList({ sites, loading, onLoadMore, hasMore }: ResultsList
                 </div>
 
                 <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleShowOnMap(site)}
+                    className={isHighlighted ? "bg-primary text-primary-foreground" : ""}
+                  >
+                    <Map className="h-4 w-4 mr-2" />
+                    {isHighlighted ? "Highlighted" : "Show on Map"}
+                  </Button>
                   <Button size="sm" className="flex-1" onClick={() => handleViewDetails(site)}>
                     <ExternalLink className="h-4 w-4 mr-2" />
                     View Details

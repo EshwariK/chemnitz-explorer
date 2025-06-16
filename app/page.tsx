@@ -5,8 +5,7 @@ import { HeroSection } from "@/components/hero-section"
 import { SearchFilters } from "@/components/search-filters"
 import { MapPreview } from "@/components/map-preview"
 import { ResultsList } from "@/components/results-list"
-import type { CulturalSite } from "@/lib/cultural-sites-service"
-import type { SearchFilters as SearchFilterType } from "@/lib/cultural-sites-service"
+import type { CulturalSite, SearchFilters as SearchFilterType } from "@/lib/cultural-sites-service"
 
 interface SearchState {
   sites: CulturalSite[]
@@ -29,6 +28,7 @@ export default function HomePage() {
     search: "",
     category: "all",
   })
+  const [highlightedSiteId, setHighlightedSiteId] = useState<string | null>(null)
 
   // Load categories on mount
   useEffect(() => {
@@ -80,6 +80,11 @@ export default function HomePage() {
           totalPages: data.pagination.totalPages,
           loading: false,
         }))
+
+        // Clear highlighted site when new search is performed
+        if (!append) {
+          setHighlightedSiteId(null)
+        }
       }
     } catch (error) {
       console.error("Error loading sites:", error)
@@ -98,18 +103,40 @@ export default function HomePage() {
     }
   }
 
+  const handleSiteClick = (site: CulturalSite) => {
+    const siteId = site._id?.toString()
+    setHighlightedSiteId(siteId || null)
+  }
+
+  const handleMarkerClick = (site: CulturalSite) => {
+    const siteId = site._id?.toString()
+    setHighlightedSiteId(siteId || null)
+
+    // Scroll to the corresponding result item
+    const element = document.getElementById(`site-${siteId}`)
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+  }
+
   return (
     <div className="space-y-12 pb-12">
       <HeroSection />
       <div className="container mx-auto px-4 space-y-12">
         <SearchFilters onSearch={handleSearch} categories={categories} loading={searchState.loading} />
         <div className="grid lg:grid-cols-2 gap-8">
-          <MapPreview />
+          <MapPreview
+            sites={searchState.sites}
+            highlightedSiteId={highlightedSiteId}
+            onMarkerClick={handleMarkerClick}
+          />
           <ResultsList
             sites={searchState.sites}
             loading={searchState.loading}
             onLoadMore={handleLoadMore}
             hasMore={searchState.hasMore}
+            onSiteClick={handleSiteClick}
+            highlightedSiteId={highlightedSiteId}
           />
         </div>
       </div>
