@@ -5,6 +5,9 @@ import { HeroSection } from "@/components/hero-section"
 import { SearchFilters } from "@/components/search-filters"
 import { MapPreview } from "@/components/map-preview"
 import { ResultsList } from "@/components/results-list"
+import { Button } from "@/components/ui/button"
+import { MapPin } from "lucide-react"
+import { toast } from "sonner"
 import type { CulturalSite, SearchFilters as SearchFilterType } from "@/lib/cultural-sites-service"
 
 interface SearchState {
@@ -29,6 +32,7 @@ export default function HomePage() {
     category: "all",
   })
   const [highlightedSiteId, setHighlightedSiteId] = useState<string | null>(null)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
 
   // Load categories on mount
   useEffect(() => {
@@ -92,6 +96,36 @@ export default function HomePage() {
     }
   }
 
+  const loadNearbySites = async (lat: number, lng: number, radius = 5) => {
+    setSearchState((prev) => ({ ...prev, loading: true }))
+
+    try {
+      const response = await fetch(`/api/cultural-sites/nearby?lat=${lat}&lng=${lng}&radius=${radius}&limit=50`)
+      if (response.ok) {
+        const nearbySites = await response.json()
+
+        setSearchState({
+          sites: nearbySites,
+          loading: false,
+          page: 1,
+          hasMore: false,
+          totalPages: 1,
+        })
+
+        setCurrentFilters({
+          search: `Within ${radius}km of your location`,
+          category: "all",
+        })
+
+        toast.success(`Found ${nearbySites.length} cultural sites near you`)
+      }
+    } catch (error) {
+      console.error("Error loading nearby sites:", error)
+      setSearchState((prev) => ({ ...prev, loading: false }))
+      toast.error("Failed to load nearby sites")
+    }
+  }
+
   const handleSearch = (filters: { search: string; category: string }) => {
     setCurrentFilters(filters)
     loadSites(1, filters)
@@ -119,16 +153,45 @@ export default function HomePage() {
     }
   }
 
+  const handleLocationFound = (lat: number, lng: number) => {
+    setUserLocation((prev) => {
+    if (!prev || prev.lat !== lat || prev.lng !== lng) {
+      return { lat, lng }
+    }
+    return prev
+  })
+  }
+
+  const handleFindNearby = () => {
+    if (userLocation) {
+      loadNearbySites(userLocation.lat, userLocation.lng, 5)
+    } else {
+      toast.warning("Please enable location access first")
+    }
+  }
+
   return (
     <div className="space-y-12 pb-12">
       <HeroSection />
       <div className="container mx-auto px-4 space-y-12">
         <SearchFilters onSearch={handleSearch} categories={categories} loading={searchState.loading} />
+
+        {/* Location-based search */}
+        {userLocation && (
+          <div className="flex justify-center">
+            <Button onClick={handleFindNearby} variant="outline" className="gap-2">
+              <MapPin className="h-4 w-4" />
+              Find Sites Near Me
+            </Button>
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-2 gap-8">
           <MapPreview
             sites={searchState.sites}
             highlightedSiteId={highlightedSiteId}
             onMarkerClick={handleMarkerClick}
+            onLocationFound={handleLocationFound}
           />
           <ResultsList
             sites={searchState.sites}

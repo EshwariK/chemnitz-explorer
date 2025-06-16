@@ -1,13 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import type { CulturalSite } from "@/lib/cultural-sites-service"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MapPin, ExternalLink, Phone, Globe } from "lucide-react"
+import { MapPin, ExternalLink, Phone, Globe, Navigation } from "lucide-react"
+import { LocationControl } from "./location-control"
+import { useGeolocation } from "@/hooks/use-geolocation"
 
 // Fix for default markers in React-Leaflet
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl
@@ -80,15 +82,56 @@ const createCustomIcon = (category: string, isHighlighted = false) => {
   })
 }
 
+// Create user location icon
+const createUserLocationIcon = () => {
+  return L.divIcon({
+    html: `
+      <div style="
+        background-color: #3b82f6;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+        position: relative;
+      ">
+        <div style="
+          position: absolute;
+          top: -8px;
+          left: -8px;
+          width: 32px;
+          height: 32px;
+          border: 2px solid #3b82f6;
+          border-radius: 50%;
+          opacity: 0.3;
+          animation: locationPulse 2s infinite;
+        "></div>
+      </div>
+      <style>
+        @keyframes locationPulse {
+          0% { transform: scale(0.8); opacity: 0.8; }
+          50% { transform: scale(1.2); opacity: 0.3; }
+          100% { transform: scale(1.5); opacity: 0; }
+        }
+      </style>
+    `,
+    className: "user-location-marker",
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  })
+}
+
 // Component to handle map updates
 function MapUpdater({
   sites,
   highlightedSiteId,
 //   onMarkerClick,
+  userLocation,
 }: {
   sites: CulturalSite[]
   highlightedSiteId: string | null
   onMarkerClick: (site: CulturalSite) => void
+  userLocation: { lat: number; lng: number } | null
 }) {
   const map = useMap()
 
@@ -97,10 +140,15 @@ function MapUpdater({
       // Calculate bounds to fit all markers
       const bounds = L.latLngBounds(sites.map((site) => [site.coordinates.lat, site.coordinates.lng]))
 
+      // Include user location in bounds if available
+      if (userLocation) {
+        bounds.extend([userLocation.lat, userLocation.lng])
+      }
+
       // Fit map to show all markers with some padding
       map.fitBounds(bounds, { padding: [20, 20] })
     }
-  }, [sites, map])
+  }, [sites, map, userLocation])
 
   useEffect(() => {
     if (highlightedSiteId) {
@@ -124,6 +172,9 @@ interface InteractiveMapProps {
   onMarkerClick?: (site: CulturalSite) => void
   height?: string
   className?: string
+  showLocationControl?: boolean
+  showNearbySearch?: boolean
+  onLocationFound?: (lat: number, lng: number) => void
 }
 
 export function InteractiveMap({
@@ -132,12 +183,18 @@ export function InteractiveMap({
   onMarkerClick,
   height = "400px",
   className = "",
+  showLocationControl = true,
+  showNearbySearch = false,
+  onLocationFound,
 }: InteractiveMapProps) {
   const [isClient, setIsClient] = useState(false)
+  const { latitude, longitude, accuracy } = useGeolocation()
 
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  const userLocation = latitude && longitude ? { lat: latitude, lng: longitude } : null
 
   if (!isClient) {
     return (
@@ -152,25 +209,64 @@ export function InteractiveMap({
 
   // Default center (Chemnitz city center)
   const defaultCenter: [number, number] = [50.8278, 12.9214]
-  const center =
-    sites.length > 0 ? ([sites[0].coordinates.lat, sites[0].coordinates.lng] as [number, number]) : defaultCenter
+  const center = userLocation
+    ? ([userLocation.lat, userLocation.lng] as [number, number])
+    : sites.length > 0
+      ? ([sites[0].coordinates.lat, sites[0].coordinates.lng] as [number, number])
+      : defaultCenter
 
   return (
-    <div className={`rounded-lg overflow-hidden border ${className}`} style={{ height }}>
-      <MapContainer
-        key="chemnitz-map"
-        center={center}
-        zoom={13}
-        style={{ height: "100%", width: "100%" }}
-        zoomControl={true}
-      >
+    <div className={`rounded-lg overflow-hidden border relative ${className}`} style={{ height }}>
+      <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }} zoomControl={true}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <MapUpdater sites={sites} highlightedSiteId={highlightedSiteId} onMarkerClick={onMarkerClick || (() => {})} />
+        <MapUpdater
+          sites={sites}
+          highlightedSiteId={highlightedSiteId}
+          onMarkerClick={onMarkerClick || (() => {})}
+          userLocation={userLocation}
+        />
 
+        {/* User location marker */}
+        {userLocation && (
+          <>
+            <Marker position={[userLocation.lat, userLocation.lng]} icon={createUserLocationIcon()}>
+              <Popup>
+                <div className="p-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Navigation className="h-4 w-4 text-blue-500" />
+                    <span className="font-semibold">Your Location</span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Accuracy: {accuracy ? `±${Math.round(accuracy)}m` : "Unknown"}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
+                  </p>
+                </div>
+              </Popup>
+            </Marker>
+
+            {/* Accuracy circle */}
+            {accuracy && accuracy < 1000 && (
+              <Circle
+                center={[userLocation.lat, userLocation.lng]}
+                radius={accuracy}
+                pathOptions={{
+                  color: "#3b82f6",
+                  fillColor: "#3b82f6",
+                  fillOpacity: 0.1,
+                  weight: 2,
+                }}
+              />
+            )}
+          </>
+        )}
+
+        {/* Cultural site markers */}
         {sites.map((site) => {
           const siteId = site._id?.toString()
           const isHighlighted = siteId === highlightedSiteId
@@ -223,6 +319,20 @@ export function InteractiveMap({
                       )}
                     </div>
 
+                    {/* Distance from user location */}
+                    {userLocation && (
+                      <div className="text-xs text-gray-500">
+                        Distance:{" "}
+                        {calculateDistance(
+                          userLocation.lat,
+                          userLocation.lng,
+                          site.coordinates.lat,
+                          site.coordinates.lng,
+                        ).toFixed(1)}
+                        km
+                      </div>
+                    )}
+
                     <div className="flex gap-2 pt-2">
                       <Button
                         size="sm"
@@ -243,9 +353,28 @@ export function InteractiveMap({
             </Marker>
           )
         })}
+
+        {/* Location control */}
+        {showLocationControl && <LocationControl onLocationFound={onLocationFound} showNearby={showNearbySearch} />}
       </MapContainer>
     </div>
   )
+}
+
+// Helper function to calculate distance
+function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371 // Earth's radius in km
+  const dLat = toRadians(lat2 - lat1)
+  const dLng = toRadians(lng2 - lng1)
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
+function toRadians(degrees: number): number {
+  return degrees * (Math.PI / 180)
 }
 
 export default InteractiveMap

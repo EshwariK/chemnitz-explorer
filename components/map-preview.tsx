@@ -5,14 +5,14 @@ import type { CulturalSite } from "@/lib/cultural-sites-service"
 
 const InteractiveMap = dynamic(() => import("./interactive-map"), { ssr: false })
 
-
 interface MapPreviewProps {
   sites: CulturalSite[]
   highlightedSiteId?: string | null
   onMarkerClick?: (site: CulturalSite) => void
+  onLocationFound?: (lat: number, lng: number) => void
 }
 
-export function MapPreview({ sites, highlightedSiteId, onMarkerClick }: MapPreviewProps) {
+export function MapPreview({ sites, highlightedSiteId, onMarkerClick, onLocationFound }: MapPreviewProps) {
   return (
     <Card>
       <CardHeader>
@@ -29,7 +29,10 @@ export function MapPreview({ sites, highlightedSiteId, onMarkerClick }: MapPrevi
           sites={sites}
           highlightedSiteId={highlightedSiteId}
           onMarkerClick={onMarkerClick}
+          onLocationFound={onLocationFound}
           height="400px"
+          showLocationControl={true}
+          showNearbySearch={true}
         />
       </CardContent>
     </Card>
