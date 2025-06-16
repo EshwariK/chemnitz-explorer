@@ -133,7 +133,12 @@ export default function MapPage() {
   }
 
   const handleLocationFound = (lat: number, lng: number) => {
-    setUserLocation({ lat, lng })
+    setUserLocation((prev) => {
+    if (!prev || prev.lat !== lat || prev.lng !== lng) {
+      return { lat, lng }
+    }
+    return prev
+  })
   }
 
   const handleFindNearby = () => {

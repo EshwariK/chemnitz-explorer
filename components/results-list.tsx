@@ -4,9 +4,10 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Heart, ExternalLink, MapPin, Phone, Globe, Clock, Loader2, Map } from "lucide-react"
+import { Heart, MapPin, Phone, Globe, Clock, Loader2, Map, Info } from "lucide-react"
 import { toast } from "sonner"
 import { useSession } from "next-auth/react"
+import { SiteDetailsModal } from "./site-details-modal"
 import type { CulturalSite } from "@/lib/cultural-sites-service"
 
 const categoryColors = {
@@ -31,10 +32,12 @@ interface ResultsListProps {
 export function ResultsList({ sites, loading, onLoadMore, hasMore, onSiteClick, highlightedSiteId }: ResultsListProps) {
   const { data: session } = useSession()
   const [favoritingIds, setFavoritingIds] = useState<Set<string>>(new Set())
+  const [selectedSite, setSelectedSite] = useState<CulturalSite | null>(null)
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false)
 
   const handleFavorite = async (site: CulturalSite) => {
     if (!session) {
-      toast.info("Please log in to save favorites")
+      toast.warning("Please log in to save favorites")
       return
     }
 
@@ -100,13 +103,9 @@ export function ResultsList({ sites, loading, onLoadMore, hasMore, onSiteClick, 
       }
     }
 
-    // Open in new tab or navigate to details page
-    if (site.website) {
-      window.open(site.website, "_blank")
-    } else {
-      // Navigate to details page (you can implement this)
-      toast.info(`Viewing details for ${site.name}`)
-    }
+    // Open details modal
+    setSelectedSite(site)
+    setDetailsModalOpen(true)
   }
 
   const handleShowOnMap = (site: CulturalSite) => {
@@ -139,113 +138,119 @@ export function ResultsList({ sites, loading, onLoadMore, hasMore, onSiteClick, 
   }
 
   return (
-    <div className="space-y-6">
-      <h3 className="text-2xl font-bold">Cultural Sites ({sites.length} found)</h3>
-      <div className="space-y-4">
-        {sites.map((site) => {
-          const siteId = site._id?.toString()
-          const isFavoriting = siteId ? favoritingIds.has(siteId) : false
-          const isHighlighted = siteId === highlightedSiteId
+    <>
+      <div className="space-y-6">
+        <h3 className="text-2xl font-bold">Cultural Sites ({sites.length} found)</h3>
+        <div className="space-y-4">
+          {sites.map((site) => {
+            const siteId = site._id?.toString()
+            const isFavoriting = siteId ? favoritingIds.has(siteId) : false
+            const isHighlighted = siteId === highlightedSiteId
 
-          return (
-            <Card
-              key={siteId}
-              className={`overflow-hidden transition-all duration-200 ${
-                isHighlighted ? "ring-2 ring-primary shadow-lg" : ""
-              }`}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2 flex-1">
-                    <CardTitle className="text-lg">{site.name}</CardTitle>
-                    <Badge
-                      variant="secondary"
-                      className={categoryColors[site.category as keyof typeof categoryColors] || ""}
+            return (
+              <Card
+                key={siteId}
+                id={`site-${siteId}`}
+                className={`overflow-hidden transition-all duration-200 ${
+                  isHighlighted ? "ring-2 ring-primary shadow-lg" : ""
+                }`}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-2 flex-1">
+                      <CardTitle className="text-lg">{site.name}</CardTitle>
+                      <Badge
+                        variant="secondary"
+                        className={categoryColors[site.category as keyof typeof categoryColors] || ""}
+                      >
+                        {site.category}
+                      </Badge>
+                      {site.address && (
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <MapPin className="h-3 w-3 mr-1" />
+                          {site.address}
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleFavorite(site)}
+                      disabled={isFavoriting || !session}
+                      className="text-muted-foreground hover:text-red-500"
                     >
-                      {site.category}
-                    </Badge>
-                    {site.address && (
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <MapPin className="h-3 w-3 mr-1" />
-                        {site.address}
+                      {isFavoriting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {site.description && <p className="text-muted-foreground text-sm">{site.description}</p>}
+
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    {site.phone && (
+                      <div className="flex items-center">
+                        <Phone className="h-3 w-3 mr-1" />
+                        {site.phone}
                       </div>
                     )}
+                    {site.website && (
+                      <div className="flex items-center">
+                        <Globe className="h-3 w-3 mr-1" />
+                        Website
+                      </div>
+                    )}
+                    {site.openingHours && (
+                      <div className="flex items-center">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {site.openingHours}
+                      </div>
+                    )}
+                    {site.accessibility?.wheelchair === "yes" && (
+                      <Badge variant="outline" className="text-xs">
+                        ♿ Accessible
+                      </Badge>
+                    )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleFavorite(site)}
-                    disabled={isFavoriting || !session}
-                    className="text-muted-foreground hover:text-red-500"
-                  >
-                    {isFavoriting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {site.description && <p className="text-muted-foreground text-sm">{site.description}</p>}
 
-                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  {site.phone && (
-                    <div className="flex items-center">
-                      <Phone className="h-3 w-3 mr-1" />
-                      {site.phone}
-                    </div>
-                  )}
-                  {site.website && (
-                    <div className="flex items-center">
-                      <Globe className="h-3 w-3 mr-1" />
-                      Website
-                    </div>
-                  )}
-                  {site.openingHours && (
-                    <div className="flex items-center">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {site.openingHours}
-                    </div>
-                  )}
-                  {site.accessibility?.wheelchair === "yes" && (
-                    <Badge variant="outline" className="text-xs">
-                      ♿ Accessible
-                    </Badge>
-                  )}
-                </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleShowOnMap(site)}
+                      className={isHighlighted ? "bg-primary text-primary-foreground" : ""}
+                    >
+                      <Map className="h-4 w-4 mr-2" />
+                      {isHighlighted ? "Highlighted" : "Show on Map"}
+                    </Button>
+                    <Button size="sm" className="flex-1" onClick={() => handleViewDetails(site)}>
+                      <Info className="h-4 w-4 mr-2" />
+                      View Details
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
 
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleShowOnMap(site)}
-                    className={isHighlighted ? "bg-primary text-primary-foreground" : ""}
-                  >
-                    <Map className="h-4 w-4 mr-2" />
-                    {isHighlighted ? "Highlighted" : "Show on Map"}
-                  </Button>
-                  <Button size="sm" className="flex-1" onClick={() => handleViewDetails(site)}>
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    View Details
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
+        {hasMore && (
+          <div className="text-center">
+            <Button onClick={onLoadMore} disabled={loading} variant="outline">
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                "Load More"
+              )}
+            </Button>
+          </div>
+        )}
       </div>
 
-      {hasMore && (
-        <div className="text-center">
-          <Button onClick={onLoadMore} disabled={loading} variant="outline">
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Loading...
-              </>
-            ) : (
-              "Load More"
-            )}
-          </Button>
-        </div>
-      )}
-    </div>
+      {/* Site Details Modal */}
+      <SiteDetailsModal site={selectedSite} open={detailsModalOpen} onOpenChange={setDetailsModalOpen} />
+    </>
   )
 }

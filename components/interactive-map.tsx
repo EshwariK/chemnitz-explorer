@@ -7,9 +7,10 @@ import "leaflet/dist/leaflet.css"
 import type { CulturalSite } from "@/lib/cultural-sites-service"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MapPin, ExternalLink, Phone, Globe, Navigation } from "lucide-react"
+import { MapPin, ExternalLink, Phone, Globe, Navigation, Info } from "lucide-react"
 import { LocationControl } from "./location-control"
 import { useGeolocation } from "@/hooks/use-geolocation"
+import { SiteDetailsModal } from "./site-details-modal"
 
 // Fix for default markers in React-Leaflet
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl
@@ -188,6 +189,8 @@ export function InteractiveMap({
   onLocationFound,
 }: InteractiveMapProps) {
   const [isClient, setIsClient] = useState(false)
+  const [selectedSite, setSelectedSite] = useState<CulturalSite | null>(null)
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false)
   const { latitude, longitude, accuracy } = useGeolocation()
 
   useEffect(() => {
@@ -195,6 +198,11 @@ export function InteractiveMap({
   }, [])
 
   const userLocation = latitude && longitude ? { lat: latitude, lng: longitude } : null
+
+  const handleSiteDetailsClick = (site: CulturalSite) => {
+    setSelectedSite(site)
+    setDetailsModalOpen(true)
+  }
 
   if (!isClient) {
     return (
@@ -216,19 +224,21 @@ export function InteractiveMap({
       : defaultCenter
 
   return (
-    <div className={`rounded-lg overflow-hidden border relative ${className}`} style={{ height }}>
-      <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }} zoomControl={true}>
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+    <>
+      {/* Map container */}
+        <div className={`rounded-lg overflow-hidden z-40 border relative ${className}`} style={{ height }}>
+        <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }} zoomControl={true}>
+            <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
 
-        <MapUpdater
-          sites={sites}
-          highlightedSiteId={highlightedSiteId}
-          onMarkerClick={onMarkerClick || (() => {})}
-          userLocation={userLocation}
-        />
+            <MapUpdater
+            sites={sites}
+            highlightedSiteId={highlightedSiteId}
+            onMarkerClick={onMarkerClick || (() => {})}
+            userLocation={userLocation}
+            />
 
         {/* User location marker */}
         {userLocation && (
@@ -263,101 +273,102 @@ export function InteractiveMap({
                 }}
               />
             )}
-          </>
+        </>
         )}
 
         {/* Cultural site markers */}
-        {sites.map((site) => {
-          const siteId = site._id?.toString()
-          const isHighlighted = siteId === highlightedSiteId
+          {sites.map((site) => {
+            const siteId = site._id?.toString()
+            const isHighlighted = siteId === highlightedSiteId
 
-          return (
-            <Marker
-              key={siteId}
-              position={[site.coordinates.lat, site.coordinates.lng]}
-              icon={createCustomIcon(site.category, isHighlighted)}
-              eventHandlers={{
-                click: () => onMarkerClick?.(site),
-              }}
-            >
-              <Popup>
-                <div className="p-2 min-w-[250px]">
-                  <div className="space-y-3">
-                    <div>
-                      <h3 className="font-semibold text-lg">{site.name}</h3>
-                      <Badge variant="secondary" className="mt-1">
-                        {site.category}
-                      </Badge>
-                    </div>
-
-                    {site.description && <p className="text-sm text-gray-600">{site.description}</p>}
-
-                    {site.address && (
-                      <div className="flex items-start text-sm text-gray-600">
-                        <MapPin className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
-                        <span>{site.address}</span>
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      {site.phone && (
-                        <div className="flex items-center text-gray-600">
-                          <Phone className="h-3 w-3 mr-1" />
-                          {site.phone}
-                        </div>
-                      )}
-                      {site.website && (
-                        <div className="flex items-center text-gray-600">
-                          <Globe className="h-3 w-3 mr-1" />
-                          Website
-                        </div>
-                      )}
-                      {site.accessibility?.wheelchair === "yes" && (
-                        <Badge variant="outline" className="text-xs">
-                          ♿ Accessible
+            return (
+              <Marker
+                key={siteId}
+                position={[site.coordinates.lat, site.coordinates.lng]}
+                icon={createCustomIcon(site.category, isHighlighted)}
+                eventHandlers={{
+                  click: () => onMarkerClick?.(site),
+                }}
+              >
+                <Popup>
+                  <div className="p-2 min-w-[250px]">
+                    <div className="space-y-3">
+                      <div>
+                        <h3 className="font-semibold text-lg">{site.name}</h3>
+                        <Badge variant="secondary" className="mt-1">
+                          {site.category}
                         </Badge>
-                      )}
-                    </div>
-
-                    {/* Distance from user location */}
-                    {userLocation && (
-                      <div className="text-xs text-gray-500">
-                        Distance:{" "}
-                        {calculateDistance(
-                          userLocation.lat,
-                          userLocation.lng,
-                          site.coordinates.lat,
-                          site.coordinates.lng,
-                        ).toFixed(1)}
-                        km
                       </div>
-                    )}
 
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => {
-                          if (site.website) {
-                            window.open(site.website, "_blank")
-                          }
-                        }}
-                      >
-                        <ExternalLink className="h-3 w-3 mr-1" />
-                        Details
-                      </Button>
+                      {site.description && <p className="text-sm text-gray-600">{site.description}</p>}
+
+                      {site.address && (
+                        <div className="flex items-start text-sm text-gray-600">
+                          <MapPin className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
+                          <span>{site.address}</span>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {site.phone && (
+                          <div className="flex items-center text-gray-600">
+                            <Phone className="h-3 w-3 mr-1" />
+                            {site.phone}
+                          </div>
+                        )}
+                        {site.website && (
+                          <div className="flex items-center text-gray-600">
+                            <Globe className="h-3 w-3 mr-1" />
+                            Website
+                          </div>
+                        )}
+                        {site.accessibility?.wheelchair === "yes" && (
+                          <Badge variant="outline" className="text-xs">
+                            ♿ Accessible
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Distance from user location */}
+                      {userLocation && (
+                        <div className="text-xs text-gray-500">
+                          Distance:{" "}
+                          {calculateDistance(
+                            userLocation.lat,
+                            userLocation.lng,
+                            site.coordinates.lat,
+                            site.coordinates.lng,
+                          ).toFixed(1)}
+                          km
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-2">
+                        <Button size="sm" onClick={() => handleSiteDetailsClick(site)} className="flex-1">
+                          <Info className="h-3 w-3 mr-1" />
+                          View Details
+                        </Button>
+                        {site.website && (
+                          <Button size="sm" variant="outline" onClick={() => window.open(site.website, "_blank")}>
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Popup>
-            </Marker>
-          )
-        })}
+                </Popup>
+              </Marker>
+            )
+          })}
 
         {/* Location control */}
-        {showLocationControl && <LocationControl onLocationFound={onLocationFound} showNearby={showNearbySearch} />}
-      </MapContainer>
-    </div>
+          {showLocationControl && <LocationControl onLocationFound={onLocationFound} showNearby={showNearbySearch} />}
+        </MapContainer>
+      </div>
+
+      {/* Site Details Modal */}
+      <SiteDetailsModal site={selectedSite} open={detailsModalOpen} onOpenChange={setDetailsModalOpen} />
+    </>
   )
 }
 
