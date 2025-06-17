@@ -7,10 +7,21 @@ import "leaflet/dist/leaflet.css"
 import type { CulturalSite } from "@/lib/cultural-sites-service"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MapPin, ExternalLink, Phone, Globe, Navigation, Info } from "lucide-react"
+import { MapPin, ExternalLink, Phone, Globe, Navigation, Info, Heart, Loader2 } from "lucide-react"
 import { LocationControl } from "./location-control"
-import { useGeolocation } from "@/hooks/use-geolocation"
 import { SiteDetailsModal } from "./site-details-modal"
+import { useGeolocation } from "@/hooks/use-geolocation"
+import { useFavorites } from "@/hooks/use-favorites"
+
+const categoryColors = {
+  Theatre: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-800/30",
+  Museum: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/30",
+  Artwork: "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800/30",
+  Gallery: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/30",
+  Memorial: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800/30",
+  Restaurant: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-800/30",
+  Library: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/30 dark:text-violet-300 dark:border-violet-800/30",
+}
 
 // Fix for default markers in React-Leaflet
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl
@@ -126,7 +137,7 @@ const createUserLocationIcon = () => {
 function MapUpdater({
   sites,
   highlightedSiteId,
-//   onMarkerClick,
+  // onMarkerClick,
   userLocation,
 }: {
   sites: CulturalSite[]
@@ -193,6 +204,8 @@ export function InteractiveMap({
   const [detailsModalOpen, setDetailsModalOpen] = useState(false)
   const { latitude, longitude, accuracy } = useGeolocation()
 
+  const { toggleFavorite, isFavorited, isFavoriting } = useFavorites()
+
   useEffect(() => {
     setIsClient(true)
   }, [])
@@ -228,55 +241,55 @@ export function InteractiveMap({
       {/* Map container */}
         <div className={`rounded-lg overflow-hidden z-40 border relative ${className}`} style={{ height }}>
         <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }} zoomControl={true}>
-            <TileLayer
+          <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+          />
 
-            <MapUpdater
+          <MapUpdater
             sites={sites}
             highlightedSiteId={highlightedSiteId}
             onMarkerClick={onMarkerClick || (() => {})}
             userLocation={userLocation}
-            />
+          />
 
-        {/* User location marker */}
-        {userLocation && (
-          <>
-            <Marker position={[userLocation.lat, userLocation.lng]} icon={createUserLocationIcon()}>
-              <Popup>
-                <div className="p-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Navigation className="h-4 w-4 text-blue-500" />
-                    <span className="font-semibold">Your Location</span>
+          {/* User location marker */}
+          {userLocation && (
+            <>
+              <Marker position={[userLocation.lat, userLocation.lng]} icon={createUserLocationIcon()}>
+                <Popup>
+                  <div className="p-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Navigation className="h-4 w-4 text-blue-500" />
+                      <span className="font-semibold">Your Location</span>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      Accuracy: {accuracy ? `±${Math.round(accuracy)}m` : "Unknown"}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
+                    </p>
                   </div>
-                  <p className="text-sm text-gray-600">
-                    Accuracy: {accuracy ? `±${Math.round(accuracy)}m` : "Unknown"}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
-                  </p>
-                </div>
-              </Popup>
-            </Marker>
+                </Popup>
+              </Marker>
 
-            {/* Accuracy circle */}
-            {accuracy && accuracy < 1000 && (
-              <Circle
-                center={[userLocation.lat, userLocation.lng]}
-                radius={accuracy}
-                pathOptions={{
-                  color: "#3b82f6",
-                  fillColor: "#3b82f6",
-                  fillOpacity: 0.1,
-                  weight: 2,
-                }}
-              />
-            )}
-        </>
-        )}
+              {/* Accuracy circle */}
+              {accuracy && accuracy < 1000 && (
+                <Circle
+                  center={[userLocation.lat, userLocation.lng]}
+                  radius={accuracy}
+                  pathOptions={{
+                    color: "#3b82f6",
+                    fillColor: "#3b82f6",
+                    fillOpacity: 0.1,
+                    weight: 2,
+                  }}
+                />
+              )}
+            </>
+          )}
 
-        {/* Cultural site markers */}
+          {/* Cultural site markers */}
           {sites.map((site) => {
             const siteId = site._id?.toString()
             const isHighlighted = siteId === highlightedSiteId
@@ -295,7 +308,10 @@ export function InteractiveMap({
                     <div className="space-y-3">
                       <div>
                         <h3 className="font-semibold text-lg">{site.name}</h3>
-                        <Badge variant="secondary" className="mt-1">
+                        <Badge
+                          variant="secondary"
+                          className={`${categoryColors[site.category as keyof typeof categoryColors] || ""} text-xs`}
+                        >
                           {site.category}
                         </Badge>
                       </div>
@@ -343,17 +359,39 @@ export function InteractiveMap({
                         </div>
                       )}
 
-                      <div className="flex gap-2 pt-2">
-                        <Button size="sm" onClick={() => handleSiteDetailsClick(site)} className="flex-1">
-                          <Info className="h-3 w-3 mr-1" />
-                          View Details
-                        </Button>
-                        {site.website && (
-                          <Button size="sm" variant="outline" onClick={() => window.open(site.website, "_blank")}>
-                            <ExternalLink className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
+                      {/* In the Popup content, add favorite button: */}
+                      {(() => {
+                        const siteId = site._id?.toString()
+                        const isCurrentlyFavorited = isFavorited(siteId)
+                        const isCurrentlyFavoriting = isFavoriting(siteId)
+
+                        return (
+                          <div className="flex gap-2 pt-2">
+                            <Button size="sm" onClick={() => handleSiteDetailsClick(site)} className="flex-1">
+                              <Info className="h-3 w-3 mr-1" />
+                              View Details
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => toggleFavorite(site)}
+                              disabled={isCurrentlyFavoriting}
+                              className={`${isCurrentlyFavorited ? "text-rose-500 border-rose-200 bg-rose-50 dark:bg-rose-950/20" : ""}`}
+                            >
+                              {isCurrentlyFavoriting ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Heart className={`h-3 w-3 ${isCurrentlyFavorited ? "fill-current" : ""}`} />
+                              )}
+                            </Button>
+                            {site.website && (
+                              <Button size="sm" variant="outline" onClick={() => window.open(site.website, "_blank")}>
+                                <ExternalLink className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </div>
                   </div>
                 </Popup>
@@ -361,7 +399,7 @@ export function InteractiveMap({
             )
           })}
 
-        {/* Location control */}
+          {/* Location control */}
           {showLocationControl && <LocationControl onLocationFound={onLocationFound} showNearby={showNearbySearch} />}
         </MapContainer>
       </div>

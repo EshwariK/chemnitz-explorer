@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next"
 import { UserService } from "@/lib/user-service"
 import { authOptions } from "@/lib/auth-options"
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.id) {
@@ -11,6 +11,14 @@ export async function GET() {
   }
 
   try {
+    const url = new URL(request.url)
+    const groupBy = url.searchParams.get("groupBy")
+
+    if (groupBy === "category") {
+      const favoritesByCategory = await UserService.getFavoritesByCategory(session.user.id)
+      return NextResponse.json(favoritesByCategory)
+    }
+
     const favorites = await UserService.getUserFavorites(session.user.id)
     return NextResponse.json(favorites)
   } catch (error) {
@@ -28,13 +36,18 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { siteId, siteName, category, description } = body
+    const { siteId, siteName, category, description, coordinates } = body
+
+    if (!siteId || !siteName || !category) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
 
     const result = await UserService.addFavorite(session.user.id, {
       siteId,
       siteName,
       category,
-      description,
+      description: description || "",
+      coordinates: coordinates || { lat: 0, lng: 0 },
     })
 
     return NextResponse.json(result)

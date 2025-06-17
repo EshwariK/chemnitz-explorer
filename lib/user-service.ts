@@ -8,6 +8,10 @@ export interface UserFavorite {
   siteName: string
   category: string
   description: string
+  coordinates: {
+    lat: number
+    lng: number
+  }
   dateAdded: Date
 }
 
@@ -18,7 +22,19 @@ export interface UserActivity {
   siteId: string
   siteName: string
   category: string
+  coordinates?: {
+    lat: number
+    lng: number
+  }
   timestamp: Date
+}
+
+export interface UserLocation {
+  lat: number
+  lng: number
+  address?: string
+  lastUpdated: Date
+  accuracy?: number
 }
 
 export interface UserProfile {
@@ -27,9 +43,28 @@ export interface UserProfile {
   bio?: string
   location?: string
   interests?: string[]
+  currentLocation?: UserLocation
   visitedSites?: number
   createdAt: Date
   updatedAt: Date
+}
+
+export interface UserStats {
+  favorites: number
+  sitesVisited: number
+  totalViews: number
+  daysActive: number
+  favoriteCategories: Array<{ category: string; count: number }>
+  recentActivity: UserActivity[]
+  firstActivity?: Date
+  lastActivity?: Date
+}
+
+export interface DashboardData {
+  profile: UserProfile | null
+  stats: UserStats
+  recentFavorites: UserFavorite[]
+  hasLocation: boolean
 }
 
 export class UserService {
@@ -38,21 +73,20 @@ export class UserService {
     return client.db()
   }
 
-  // User Profile
-  static async getUserProfile(userId: string) {
+  // User Profile Management
+  static async getUserProfile(userId: string): Promise<UserProfile | null> {
     const db = await this.getDb()
     const profile = await db.collection("userProfiles").findOne({ userId })
-    return profile
+    return profile as UserProfile | null
   }
 
-  static async createOrUpdateUserProfile(userId: string, profileData: Partial<UserProfile>) {
+  static async createOrUpdateUserProfile(userId: string, profileData: Partial<UserProfile>): Promise<UserProfile> {
     const db = await this.getDb()
     const now = new Date()
 
     const existingProfile = await this.getUserProfile(userId)
 
     if (!existingProfile) {
-      // Create new profile
       const newProfile: UserProfile = {
         userId,
         ...profileData,
@@ -62,7 +96,6 @@ export class UserService {
       await db.collection("userProfiles").insertOne(newProfile)
       return newProfile
     } else {
-      // Update existing profile
       const updatedProfile = {
         ...existingProfile,
         ...profileData,
@@ -71,6 +104,29 @@ export class UserService {
       await db.collection("userProfiles").updateOne({ userId }, { $set: updatedProfile })
       return updatedProfile
     }
+  }
+
+  // Location Management
+  static async updateUserLocation(userId: string, location: UserLocation): Promise<void> {
+    const db = await this.getDb()
+    await db.collection("userProfiles").updateOne(
+      { userId },
+      {
+        $set: {
+          currentLocation: {
+            ...location,
+            lastUpdated: new Date(),
+          },
+          updatedAt: new Date(),
+        },
+      },
+      { upsert: true },
+    )
+  }
+
+  static async getUserLocation(userId: string): Promise<UserLocation | null> {
+    const profile = await this.getUserProfile(userId)
+    return profile?.currentLocation || null
   }
 
   // Favorites Management
@@ -101,12 +157,13 @@ export class UserService {
       siteId: siteData.siteId,
       siteName: siteData.siteName,
       category: siteData.category,
+      coordinates: siteData.coordinates,
     })
 
     return { inserted: true, favoriteId: result.insertedId }
   }
 
-  static async removeFavorite(userId: string, siteId: string) {
+  static async removeFavorite(userId: string, siteId: string): Promise<boolean> {
     const db = await this.getDb()
     const result = await db.collection("favorites").deleteOne({ userId, siteId })
     return result.deletedCount > 0
@@ -122,6 +179,32 @@ export class UserService {
     const db = await this.getDb()
     const favorite = await db.collection("favorites").findOne({ userId, siteId })
     return !!favorite
+  }
+
+  static async getFavoritesByCategory(
+    userId: string,
+  ): Promise<Array<{ category: string; count: number; sites: UserFavorite[] }>> {
+    const db = await this.getDb()
+    const favorites = await db
+      .collection("favorites")
+      .aggregate([
+        { $match: { userId } },
+        {
+          $group: {
+            _id: "$category",
+            count: { $sum: 1 },
+            sites: { $push: "$$ROOT" },
+          },
+        },
+        { $sort: { count: -1 } },
+      ])
+      .toArray()
+
+    return favorites.map((item) => ({
+      category: item._id,
+      count: item.count,
+      sites: item.sites,
+    }))
   }
 
   // Activity Tracking
@@ -143,23 +226,30 @@ export class UserService {
     return activities as UserActivity[]
   }
 
-  // User Stats
-  static async getUserStats(userId: string) {
+  // Comprehensive User Stats
+  static async getUserStats(userId: string): Promise<UserStats> {
     const db = await this.getDb()
 
-    // Get counts from different collections
-    const favoritesCount = await db.collection("favorites").countDocuments({ userId })
+    // Get all data in parallel
+    const [favoritesCount, visitedCount, viewedCount, favoriteCategories, recentActivity, firstActivity, lastActivity] =
+      await Promise.all([
+        db.collection("favorites").countDocuments({ userId }),
+        db.collection("activities").countDocuments({ userId, type: "visited" }),
+        db.collection("activities").countDocuments({ userId, type: "viewed" }),
+        db
+          .collection("favorites")
+          .aggregate([
+            { $match: { userId } },
+            { $group: { _id: "$category", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+          ])
+          .toArray(),
+        db.collection("activities").find({ userId }).sort({ timestamp: -1 }).limit(5).toArray(),
+        db.collection("activities").find({ userId }).sort({ timestamp: 1 }).limit(1).toArray(),
+        db.collection("activities").find({ userId }).sort({ timestamp: -1 }).limit(1).toArray(),
+      ])
 
-    const visitedCount = await db.collection("activities").countDocuments({ userId, type: "visited" })
-
-    const viewedCount = await db.collection("activities").countDocuments({ userId, type: "viewed" })
-
-    // Get first and last activity dates
-    const firstActivity = await db.collection("activities").find({ userId }).sort({ timestamp: 1 }).limit(1).toArray()
-
-    const lastActivity = await db.collection("activities").find({ userId }).sort({ timestamp: -1 }).limit(1).toArray()
-
-    // Calculate days active (if activities exist)
+    // Calculate days active
     let daysActive = 0
     if (firstActivity.length > 0 && lastActivity.length > 0) {
       const firstDate = new Date(firstActivity[0].timestamp)
@@ -173,8 +263,52 @@ export class UserService {
       sitesVisited: visitedCount,
       totalViews: viewedCount,
       daysActive,
-      firstActivity: firstActivity[0]?.timestamp || null,
-      lastActivity: lastActivity[0]?.timestamp || null,
+      favoriteCategories: favoriteCategories.map((cat) => ({
+        category: cat._id,
+        count: cat.count,
+      })),
+      recentActivity: recentActivity as UserActivity[],
+      firstActivity: firstActivity[0]?.timestamp || undefined,
+      lastActivity: lastActivity[0]?.timestamp || undefined,
+    }
+  }
+
+  // Get nearby favorites
+  static async getNearbyFavorites(userId: string, lat: number, lng: number, radiusKm = 10): Promise<UserFavorite[]> {
+    const db = await this.getDb()
+    const radiusDegrees = radiusKm / 111.32
+
+    const favorites = await db
+      .collection("favorites")
+      .find({
+        userId,
+        "coordinates.lat": {
+          $gte: lat - radiusDegrees,
+          $lte: lat + radiusDegrees,
+        },
+        "coordinates.lng": {
+          $gte: lng - radiusDegrees,
+          $lte: lng + radiusDegrees,
+        },
+      })
+      .toArray()
+
+    return favorites as UserFavorite[]
+  }
+
+  // Bulk operations for better performance
+  static async getUserDashboardData(userId: string): Promise<DashboardData> {
+    const [profile, stats, recentFavorites] = await Promise.all([
+      this.getUserProfile(userId),
+      this.getUserStats(userId),
+      this.getUserFavorites(userId).then((favs) => favs.slice(0, 5)),
+    ])
+
+    return {
+      profile,
+      stats,
+      recentFavorites,
+      hasLocation: !!profile?.currentLocation,
     }
   }
 }

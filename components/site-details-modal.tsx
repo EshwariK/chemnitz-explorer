@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Button } from "@/components/ui/button"
@@ -28,13 +28,27 @@ import {
   Baby,
   Snowflake,
   Coffee,
+  Heart,
+  Loader2,
 } from "lucide-react"
 import type { CulturalSite } from "@/lib/cultural-sites-service"
+import { useSession } from "next-auth/react"
+import { useFavorites } from "@/hooks/use-favorites"
 
 interface SiteDetailsModalProps {
   site: CulturalSite | null
   open: boolean
   onOpenChange: (open: boolean) => void
+}
+
+const categoryColors = {
+  Theatre: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-800/30",
+  Museum: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/30",
+  Artwork: "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800/30",
+  Gallery: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800/30",
+  Memorial: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800/30",
+  Restaurant: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-800/30",
+  Library: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/30 dark:text-violet-300 dark:border-violet-800/30",
 }
 
 // Label mapping for better display
@@ -178,6 +192,12 @@ const formatUrl = (url: string): string => {
 
 export function SiteDetailsModal({ site, open, onOpenChange }: SiteDetailsModalProps) {
   const [showRawData, setShowRawData] = useState(false)
+  const { toggleFavorite, isFavorited, isFavoriting } = useFavorites()
+  const { data: session } = useSession()
+
+  useEffect(() => {
+    // No longer needed
+  }, [session])
 
   if (!site) return null
 
@@ -348,14 +368,41 @@ export function SiteDetailsModal({ site, open, onOpenChange }: SiteDetailsModalP
           <div className="p-6">
             <DialogHeader className="space-y-4">
               <div className="space-y-2">
-                <DialogTitle className="text-2xl">{site.name}</DialogTitle>
+                <div className="flex items-start justify-between">
+                  <DialogTitle className="text-2xl flex-1">{site.name}</DialogTitle>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => toggleFavorite(site)}
+                    disabled={isFavoriting(site._id?.toString())}
+                    className={`ml-4 ${
+                      isFavorited(site._id?.toString())
+                        ? "text-rose-500 hover:text-rose-600"
+                        : "text-muted-foreground hover:text-rose-500"
+                    }`}
+                  >
+                    {isFavoriting(site._id?.toString()) ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Heart className={`h-5 w-5 ${isFavorited(site._id?.toString()) ? "fill-current" : ""}`} />
+                    )}
+                  </Button>
+                </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-sm">
+                  <Badge
+                    variant="secondary"
+                    className={`${categoryColors[site.category as keyof typeof categoryColors] || ""} text-xs`}
+                  >
                     {site.category}
                   </Badge>
+                  {isFavorited(site._id?.toString()) && (
+                    <Badge variant="outline" className="text-rose-600 border-rose-200 bg-rose-50 dark:bg-rose-950/20">
+                      <Heart className="h-3 w-3 mr-1 fill-current" />
+                      Favorited
+                    </Badge>
+                  )}
                 </div>
               </div>
-
               {site.description && (
                 <DialogDescription className="text-base leading-relaxed">{site.description}</DialogDescription>
               )}
@@ -454,7 +501,7 @@ export function SiteDetailsModal({ site, open, onOpenChange }: SiteDetailsModalP
                   </div>
                   <div className="bg-muted/50 rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto">
                     {site.tags &&
-                      Object.entries(site.tags as Record<string, string | number | boolean | null | undefined>).map(([key, value]) => (
+                      Object.entries(site.tags).map(([key, value]) => (
                         <div key={key} className="flex justify-between items-start gap-4 text-xs">
                           <code className="font-mono text-muted-foreground bg-background px-2 py-1 rounded">{key}</code>
                           <span className="text-right break-all">{String(value)}</span>

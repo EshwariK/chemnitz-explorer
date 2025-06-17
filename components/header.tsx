@@ -23,8 +23,8 @@ import Image from "next/image"
 const navigation = [
   { name: "Home", href: "/" },
   { name: "Map", href: "/map" },
-  { name: "Favorites", href: "/favorites" },
-  { name: "Dashboard", href: "/dashboard" },
+  // { name: "Favorites", href: "/favorites" },
+  // { name: "Dashboard", href: "/dashboard" },
   { name: "API Docs", href: "/docs" },
 ]
 
@@ -128,7 +128,7 @@ export function Header() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-[300px] sm:w-[400px]">
-                <nav className="flex flex-col space-y-4 mt-8">
+                <nav className="flex flex-col space-y-4 mt-8 px-4 pb-4">
                   {navigation.map((item) => (
                     <Link
                       key={item.name}

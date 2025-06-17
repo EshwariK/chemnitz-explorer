@@ -1,25 +1,20 @@
 import { requireAuth } from "@/lib/auth"
 import { UserProfile } from "@/components/user-profile"
-import { redirect } from "next/navigation"
-
-// Force dynamic rendering
-export const dynamic = 'force-dynamic'
+import { UserService } from "@/lib/user-service"
 
 export default async function ProfilePage() {
-  try {
-    const user = await requireAuth()
+  const user = await requireAuth()
 
-    return (
-        <div className="container mx-auto px-4 py-12">
-        <div className="mb-8">
-            <h1 className="text-3xl font-bold">Your Profile</h1>
-            <p className="text-muted-foreground">Manage your account and preferences</p>
-        </div>
-        <UserProfile user={user} />
-        </div>
-    )
-  } catch (error) {
-    console.error("Profile page error:", error)
-    redirect("/login")
-  }
+  // Get user's current profile data including location
+  const dashboardData = await UserService.getUserDashboardData(user.id)
+
+  return (
+    <div className="container mx-auto px-4 py-12">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">Your Profile</h1>
+        <p className="text-muted-foreground">Manage your account, preferences, and location settings</p>
+      </div>
+      <UserProfile user={user} initialData={dashboardData} />
+    </div>
+  )
 }
