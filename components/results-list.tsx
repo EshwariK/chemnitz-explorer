@@ -141,7 +141,9 @@ export function ResultsList({ sites, loading, onLoadMore, hasMore, onSiteClick, 
     <>
       <div className="space-y-6">
         <h3 className="text-2xl font-bold">Cultural Sites ({sites.length} found)</h3>
-        <div className="space-y-4">
+
+        {/* Flex Grid Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {sites.map((site) => {
             const siteId = site._id?.toString()
             const isFavoriting = siteId ? favoritingIds.has(siteId) : false
@@ -151,24 +153,24 @@ export function ResultsList({ sites, loading, onLoadMore, hasMore, onSiteClick, 
               <Card
                 key={siteId}
                 id={`site-${siteId}`}
-                className={`overflow-hidden transition-all duration-200 ${
+                className={`overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col h-full ${
                   isHighlighted ? "ring-2 ring-primary shadow-lg" : ""
                 }`}
               >
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-3 flex-shrink-0">
                   <div className="flex items-start justify-between">
-                    <div className="space-y-2 flex-1">
-                      <CardTitle className="text-lg">{site.name}</CardTitle>
+                    <div className="space-y-2 flex-1 min-w-0">
+                      <CardTitle className="text-lg leading-tight line-clamp-2">{site.name}</CardTitle>
                       <Badge
                         variant="secondary"
-                        className={categoryColors[site.category as keyof typeof categoryColors] || ""}
+                        className={`${categoryColors[site.category as keyof typeof categoryColors] || ""} text-xs`}
                       >
                         {site.category}
                       </Badge>
                       {site.address && (
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <MapPin className="h-3 w-3 mr-1" />
-                          {site.address}
+                        <div className="flex items-start text-sm text-muted-foreground">
+                          <MapPin className="h-3 w-3 mr-1 mt-0.5 flex-shrink-0" />
+                          <span className="line-clamp-2">{site.address}</span>
                         </div>
                       )}
                     </div>
@@ -177,32 +179,35 @@ export function ResultsList({ sites, loading, onLoadMore, hasMore, onSiteClick, 
                       size="icon"
                       onClick={() => handleFavorite(site)}
                       disabled={isFavoriting || !session}
-                      className="text-muted-foreground hover:text-red-500"
+                      className="text-muted-foreground hover:text-red-500 flex-shrink-0 ml-2"
                     >
                       {isFavoriting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {site.description && <p className="text-muted-foreground text-sm">{site.description}</p>}
+
+                <CardContent className="space-y-4 flex-1 flex flex-col">
+                  {site.description && (
+                    <p className="text-muted-foreground text-sm line-clamp-3 flex-1">{site.description}</p>
+                  )}
 
                   <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                     {site.phone && (
                       <div className="flex items-center">
                         <Phone className="h-3 w-3 mr-1" />
-                        {site.phone}
+                        <span className="truncate">Phone</span>
                       </div>
                     )}
                     {site.website && (
                       <div className="flex items-center">
                         <Globe className="h-3 w-3 mr-1" />
-                        Website
+                        <span>Website</span>
                       </div>
                     )}
                     {site.openingHours && (
                       <div className="flex items-center">
                         <Clock className="h-3 w-3 mr-1" />
-                        {site.openingHours}
+                        <span className="truncate">Hours</span>
                       </div>
                     )}
                     {site.accessibility?.wheelchair === "yes" && (
@@ -212,17 +217,17 @@ export function ResultsList({ sites, loading, onLoadMore, hasMore, onSiteClick, 
                     )}
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 mt-auto pt-2">
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleShowOnMap(site)}
-                      className={isHighlighted ? "bg-primary text-primary-foreground" : ""}
+                      className={`w-full ${isHighlighted ? "bg-primary text-primary-foreground" : ""}`}
                     >
                       <Map className="h-4 w-4 mr-2" />
-                      {isHighlighted ? "Highlighted" : "Show on Map"}
+                      {isHighlighted ? "Highlighted on Map" : "Show on Map"}
                     </Button>
-                    <Button size="sm" className="flex-1" onClick={() => handleViewDetails(site)}>
+                    <Button size="sm" className="w-full" onClick={() => handleViewDetails(site)}>
                       <Info className="h-4 w-4 mr-2" />
                       View Details
                     </Button>
@@ -234,15 +239,15 @@ export function ResultsList({ sites, loading, onLoadMore, hasMore, onSiteClick, 
         </div>
 
         {hasMore && (
-          <div className="text-center">
-            <Button onClick={onLoadMore} disabled={loading} variant="outline">
+          <div className="text-center pt-6">
+            <Button onClick={onLoadMore} disabled={loading} variant="outline" size="lg">
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Loading...
                 </>
               ) : (
-                "Load More"
+                "Load More Sites"
               )}
             </Button>
           </div>

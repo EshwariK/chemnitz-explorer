@@ -6,7 +6,9 @@ import { SearchFilters } from "@/components/search-filters"
 import { MapPreview } from "@/components/map-preview"
 import { ResultsList } from "@/components/results-list"
 import { Button } from "@/components/ui/button"
-import { MapPin } from "lucide-react"
+// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { MapPin, List } from "lucide-react"
 import { toast } from "sonner"
 import type { CulturalSite, SearchFilters as SearchFilterType } from "@/lib/cultural-sites-service"
 
@@ -32,12 +34,8 @@ export default function HomePage() {
     category: "all",
   })
   const [highlightedSiteId, setHighlightedSiteId] = useState<string | null>(null)
-  // const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
-
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>({
-    lat: 50.834060,
-    lng: 12.921806,
-  })
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [activeView, setActiveView] = useState<"map" | "list">("map")
 
   // Load categories on mount
   useEffect(() => {
@@ -145,27 +143,32 @@ export default function HomePage() {
   const handleSiteClick = (site: CulturalSite) => {
     const siteId = site._id?.toString()
     setHighlightedSiteId(siteId || null)
+    // Switch to map view when a site is clicked from the list
+    setActiveView("map")
   }
 
   const handleMarkerClick = (site: CulturalSite) => {
     const siteId = site._id?.toString()
     setHighlightedSiteId(siteId || null)
 
-    // Scroll to the corresponding result item
-    const element = document.getElementById(`site-${siteId}`)
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "center" })
-    }
+    // Switch to list view and scroll to the corresponding result item
+    // setActiveView("list")
+    // setTimeout(() => {
+    //   const element = document.getElementById(`site-${siteId}`)
+    //   if (element) {
+    //     element.scrollIntoView({ behavior: "smooth", block: "center" })
+    //   }
+    // }, 100)
   }
 
   const handleLocationFound = (lat: number, lng: number) => {
-    setUserLocation((prev) => {
+  setUserLocation((prev) => {
     if (!prev || prev.lat !== lat || prev.lng !== lng) {
       return { lat, lng }
     }
     return prev
   })
-  }
+}
 
   const handleFindNearby = () => {
     if (userLocation) {
@@ -191,22 +194,89 @@ export default function HomePage() {
           </div>
         )}
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          <MapPreview
-            sites={searchState.sites}
-            highlightedSiteId={highlightedSiteId}
-            onMarkerClick={handleMarkerClick}
-            onLocationFound={handleLocationFound}
-          />
-          <ResultsList
-            sites={searchState.sites}
-            loading={searchState.loading}
-            onLoadMore={handleLoadMore}
-            hasMore={searchState.hasMore}
-            onSiteClick={handleSiteClick}
-            highlightedSiteId={highlightedSiteId}
-          />
-        </div>
+        {/* Results Summary
+        {searchState.sites.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Search Results
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                <span>Found {searchState.sites.length} cultural sites</span>
+                {currentFilters.search && <span>• Search: &quot;{currentFilters.search}&quot;</span>}
+                {currentFilters.category !== "all" && <span>• Category: {currentFilters.category}</span>}
+                {userLocation && <span>• Location services enabled</span>}
+              </div>
+            </CardContent>
+          </Card>
+        )} */}
+
+        {/* Tabbed Interface for Map and List */}
+        <Tabs value={activeView} onValueChange={(value) => setActiveView(value as "map" | "list")} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+            <TabsTrigger value="map" className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              Map View
+            </TabsTrigger>
+            <TabsTrigger value="list" className="flex items-center gap-2">
+              <List className="h-4 w-4" />
+              List View
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="map" className="mt-6">
+            <div className="space-y-6">
+              <MapPreview
+                sites={searchState.sites}
+                highlightedSiteId={highlightedSiteId}
+                onMarkerClick={handleMarkerClick}
+                onLocationFound={handleLocationFound}
+              />
+
+              {/* Quick stats below map
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-primary">{searchState.sites.length}</div>
+                    <div className="text-sm text-muted-foreground">Sites Found</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-primary">{categories.length}</div>
+                    <div className="text-sm text-muted-foreground">Categories</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-primary">{highlightedSiteId ? "1" : "0"}</div>
+                    <div className="text-sm text-muted-foreground">Selected</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-primary">{userLocation ? "✓" : "✗"}</div>
+                    <div className="text-sm text-muted-foreground">Location</div>
+                  </CardContent>
+                </Card>
+              </div> */}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="list" className="mt-6">
+              <ResultsList
+                sites={searchState.sites}
+                loading={searchState.loading}
+                onLoadMore={handleLoadMore}
+                hasMore={searchState.hasMore}
+                onSiteClick={handleSiteClick}
+                highlightedSiteId={highlightedSiteId}
+              />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )

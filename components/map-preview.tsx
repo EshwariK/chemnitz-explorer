@@ -14,11 +14,11 @@ interface MapPreviewProps {
 
 export function MapPreview({ sites, highlightedSiteId, onMarkerClick, onLocationFound }: MapPreviewProps) {
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2">
           <Navigation className="h-5 w-5" />
-          Sites Map
+          Cultural Sites Map
           {sites.length > 0 && (
             <span className="text-sm font-normal text-muted-foreground">({sites.length} sites)</span>
           )}
@@ -30,7 +30,7 @@ export function MapPreview({ sites, highlightedSiteId, onMarkerClick, onLocation
           highlightedSiteId={highlightedSiteId}
           onMarkerClick={onMarkerClick}
           onLocationFound={onLocationFound}
-          height="400px"
+          height="500px"
           showLocationControl={true}
           showNearbySearch={true}
         />
