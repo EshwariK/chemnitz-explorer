@@ -18,7 +18,7 @@ export function MapPreview({ sites, highlightedSiteId, onMarkerClick, onLocation
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Navigation className="h-5 w-5" />
-          Cultural Sites Map
+          Sites Map
           {sites.length > 0 && (
             <span className="text-sm font-normal text-muted-foreground">({sites.length} sites)</span>
           )}

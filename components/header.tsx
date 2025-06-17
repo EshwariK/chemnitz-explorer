@@ -7,7 +7,7 @@ import { signOut, useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Menu, MapPin, User, LogOut, Settings, Heart } from "lucide-react"
+import { Menu, User, LogOut, Settings, Heart } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   DropdownMenu,
@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import Image from "next/image"
 
 const navigation = [
   { name: "Home", href: "/" },
@@ -46,7 +47,7 @@ export function Header() {
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
-            <MapPin className="h-6 w-6 text-primary" />
+            <Image src="/logo.png" alt="Logo" width={32} height={32} className="h-8 w-8" />
             <span className="font-bold text-xl">Where We Are</span>
           </Link>
 

@@ -56,6 +56,11 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 /* Leaflet map styles */
@@ -100,4 +105,55 @@
   transition-property: all;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 200ms;
+}
+
+/* Hero carousel specific styles */
+.hero-carousel-slide {
+  transition: transform 0.5s ease-in-out;
+}
+
+/* Backdrop blur support */
+@supports (backdrop-filter: blur(10px)) {
+  .backdrop-blur-sm {
+    backdrop-filter: blur(4px);
+  }
+}
+
+/* Fallback for browsers without backdrop-filter */
+@supports not (backdrop-filter: blur(10px)) {
+  .backdrop-blur-sm {
+    background-color: rgba(255, 255, 255, 0.8);
+  }
+
+  .dark .backdrop-blur-sm {
+    background-color: rgba(0, 0, 0, 0.8);
+  }
+}
+
+/* Animation for slide indicators */
+@keyframes slideIndicator {
+  0% {
+    width: 8px;
+  }
+  100% {
+    width: 32px;
+  }
+}
+
+/* Ensure proper z-index stacking */
+.hero-content {
+  position: relative;
+  z-index: 10;
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+
+.hero-background {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
 }
