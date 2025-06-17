@@ -32,7 +32,12 @@ export default function HomePage() {
     category: "all",
   })
   const [highlightedSiteId, setHighlightedSiteId] = useState<string | null>(null)
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  // const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>({
+    lat: 50.834060,
+    lng: 12.921806,
+  })
 
   // Load categories on mount
   useEffect(() => {

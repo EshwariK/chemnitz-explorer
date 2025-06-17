@@ -25,11 +25,11 @@ const createCustomIcon = (category: string, isHighlighted = false) => {
   const colors = {
     Theatre: "#8b5cf6", // purple
     Museum: "#3b82f6", // blue
-    Art: "#10b981", // green
-    "Tourism Spots": "#f59e0b", // orange
-    Monument: "#ef4444", // red
-    Gallery: "#6366f1", // indigo
-    Library: "#eab308", // yellow
+    Artwork: "#10b981", // green
+    Gallery: "#f59e0b", // orange
+    Memorial: "#ef4444", // red
+    Restaurant: "#6366f1", // indigo
+    Library: "#ee82ee", // violet
   }
 
   const color = colors[category as keyof typeof colors] || "#6b7280"
@@ -55,11 +55,11 @@ const createCustomIcon = (category: string, isHighlighted = false) => {
               ? "🎭"
               : category === "Museum"
                 ? "🏛️"
-                : category === "Art"
+                : category === "Artwork"
                   ? "🎨"
-                  : category === "Tourism Spots"
-                    ? "📍"
-                    : category === "Monument"
+                  : category === "Restaurant"
+                    ? "🍴"
+                    : category === "Memorial"
                       ? "🗿"
                       : category === "Gallery"
                         ? "🖼️"
