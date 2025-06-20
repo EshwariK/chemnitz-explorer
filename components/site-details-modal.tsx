@@ -2,13 +2,14 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   MapPin,
   Clock,
@@ -30,10 +31,14 @@ import {
   Coffee,
   Heart,
   Loader2,
+  Sparkles,
+  Camera,
 } from "lucide-react"
 import type { CulturalSite } from "@/lib/cultural-sites-service"
-import { useSession } from "next-auth/react"
+// import { useSession } from "next-auth/react"
 import { useFavorites } from "@/hooks/use-favorites"
+import { MemoryCreator } from "./memory-creator"
+import { SiteMemories } from "./site-memories"
 
 interface SiteDetailsModalProps {
   site: CulturalSite | null
@@ -110,6 +115,7 @@ const labelMapping: Record<string, string> = {
   inscription: "Inscription",
   heritage: "Heritage Status",
 }
+
 
 // Icons for different field types
 const getFieldIcon = (key: string) => {
@@ -192,12 +198,14 @@ const formatUrl = (url: string): string => {
 
 export function SiteDetailsModal({ site, open, onOpenChange }: SiteDetailsModalProps) {
   const [showRawData, setShowRawData] = useState(false)
+  const [activeTab, setActiveTab] = useState("details")
   const { toggleFavorite, isFavorited, isFavoriting } = useFavorites()
-  const { data: session } = useSession()
+  // const { data: session } = useSession()
 
-  useEffect(() => {
-    // No longer needed
-  }, [session])
+  const handleMemoryCreated = () => {
+    // Switch to memories tab to show the new memory
+    setActiveTab("memories")
+  }
 
   if (!site) return null
 
@@ -363,7 +371,7 @@ export function SiteDetailsModal({ site, open, onOpenChange }: SiteDetailsModalP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] p-0">
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
         <ScrollArea className="max-h-[90vh]">
           <div className="p-6">
             <DialogHeader className="space-y-4">
@@ -408,111 +416,142 @@ export function SiteDetailsModal({ site, open, onOpenChange }: SiteDetailsModalP
               )}
             </DialogHeader>
 
-            <div className="mt-6 space-y-6">
-              {/* Address */}
-              {constructedAddress && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
-                    <h3 className="font-semibold text-lg">Location</h3>
-                  </div>
-                  <div className="flex items-start gap-3 py-2">
-                    <div className="text-muted-foreground mt-0.5">
-                      <MapPin className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">Address</div>
-                      <div className="text-sm text-muted-foreground">{constructedAddress}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
+            <div className="mt-6">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="details" className="flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    Details
+                  </TabsTrigger>
+                  <TabsTrigger value="memories" className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Memories
+                  </TabsTrigger>
+                  <TabsTrigger value="create" className="flex items-center gap-2">
+                    <Camera className="h-4 w-4" />
+                    Share
+                  </TabsTrigger>
+                </TabsList>
 
-              {/* Contact & Opening Hours */}
-              {renderSection("Contact & Hours", curatedFields.contact, <Phone className="h-5 w-5" />)}
-
-              {/* Facilities & Accessibility */}
-              {renderSection(
-                "Facilities & Accessibility",
-                curatedFields.facilities,
-                <Wheelchair className="h-5 w-5" />,
-              )}
-
-              {/* Food & Services */}
-              {renderSection("Food & Services", curatedFields.food, <Utensils className="h-5 w-5" />)}
-
-              {/* Payment Methods */}
-              {getPaymentSummary() && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    <h3 className="font-semibold text-lg">Payment</h3>
-                  </div>
-                  <div className="flex items-start gap-3 py-2">
-                    <div className="text-muted-foreground mt-0.5">
-                      <CreditCard className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">Payment Methods</div>
-                      <div className="text-sm text-muted-foreground">{getPaymentSummary()}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Diet Options */}
-              {getDietSummary() && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Coffee className="h-5 w-5" />
-                    <h3 className="font-semibold text-lg">Dietary Options</h3>
-                  </div>
-                  <div className="flex items-start gap-3 py-2">
-                    <div className="text-muted-foreground mt-0.5">
-                      <Coffee className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">Available Options</div>
-                      <div className="text-sm text-muted-foreground">{getDietSummary()}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Cultural & Attribution */}
-              {renderSection("Cultural Details", curatedFields.cultural, <Building className="h-5 w-5" />)}
-
-              <Separator />
-
-              {/* Raw Data Section */}
-              <Collapsible open={showRawData} onOpenChange={setShowRawData}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-between p-0 h-auto">
-                    <div className="flex items-center gap-2">
-                      <Info className="h-5 w-5" />
-                      <span className="font-semibold text-lg">More Details</span>
-                    </div>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${showRawData ? "rotate-180" : ""}`} />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-3 mt-4">
-                  <div className="text-sm text-muted-foreground mb-3">
-                    Complete OpenStreetMap data for this location
-                  </div>
-                  <div className="bg-muted/50 rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto">
-                    {site.tags &&
-                      Object.entries(site.tags).map(([key, value]) => (
-                        <div key={key} className="flex justify-between items-start gap-4 text-xs">
-                          <code className="font-mono text-muted-foreground bg-background px-2 py-1 rounded">{key}</code>
-                          <span className="text-right break-all">{String(value)}</span>
+                <TabsContent value="details" className="mt-6 space-y-6">
+                  {/* Address */}
+                  {constructedAddress && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-5 w-5" />
+                        <h3 className="font-semibold text-lg">Location</h3>
+                      </div>
+                      <div className="flex items-start gap-3 py-2">
+                        <div className="text-muted-foreground mt-0.5">
+                          <MapPin className="h-4 w-4" />
                         </div>
-                      ))}
-                    {(!site.tags || Object.keys(site.tags).length === 0) && (
-                      <div className="text-sm text-muted-foreground text-center py-4">No additional data available</div>
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">Address</div>
+                          <div className="text-sm text-muted-foreground">{constructedAddress}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Contact & Opening Hours */}
+                  {renderSection("Contact & Hours", curatedFields.contact, <Phone className="h-5 w-5" />)}
+
+                  {/* Facilities & Accessibility */}
+                  {renderSection(
+                    "Facilities & Accessibility",
+                    curatedFields.facilities,
+                    <Wheelchair className="h-5 w-5" />,
+                  )}
+
+                  {/* Food & Services */}
+                  {renderSection("Food & Services", curatedFields.food, <Utensils className="h-5 w-5" />)}
+
+                  {/* Payment Methods */}
+                  {getPaymentSummary() && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-5 w-5" />
+                        <h3 className="font-semibold text-lg">Payment</h3>
+                      </div>
+                      <div className="flex items-start gap-3 py-2">
+                        <div className="text-muted-foreground mt-0.5">
+                          <CreditCard className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">Payment Methods</div>
+                          <div className="text-sm text-muted-foreground">{getPaymentSummary()}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Diet Options */}
+                  {getDietSummary() && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Coffee className="h-5 w-5" />
+                        <h3 className="font-semibold text-lg">Dietary Options</h3>
+                      </div>
+                      <div className="flex items-start gap-3 py-2">
+                        <div className="text-muted-foreground mt-0.5">
+                          <Coffee className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">Available Options</div>
+                          <div className="text-sm text-muted-foreground">{getDietSummary()}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cultural & Attribution */}
+                  {renderSection("Cultural Details", curatedFields.cultural, <Building className="h-5 w-5" />)}
+
+                  <Separator />
+
+                  {/* Raw Data Section */}
+                  <Collapsible open={showRawData} onOpenChange={setShowRawData}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" className="w-full justify-between p-0 h-auto">
+                        <div className="flex items-center gap-2">
+                          <Info className="h-5 w-5" />
+                          <span className="font-semibold text-lg">More Details</span>
+                        </div>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${showRawData ? "rotate-180" : ""}`} />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-3 mt-4">
+                      <div className="text-sm text-muted-foreground mb-3">
+                        Complete OpenStreetMap data for this location
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto">
+                        {site.tags &&
+                          Object.entries(site.tags).map(([key, value]) => (
+                            <div key={key} className="flex justify-between items-start gap-4 text-xs">
+                              <code className="font-mono text-muted-foreground bg-background px-2 py-1 rounded">
+                                {key}
+                              </code>
+                              <span className="text-right break-all">{String(value)}</span>
+                            </div>
+                          ))}
+                        {(!site.tags || Object.keys(site.tags).length === 0) && (
+                          <div className="text-sm text-muted-foreground text-center py-4">
+                            No additional data available
+                          </div>
+                        )}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </TabsContent>
+
+                <TabsContent value="memories" className="mt-6">
+                  <SiteMemories site={site} />
+                </TabsContent>
+
+                <TabsContent value="create" className="mt-6">
+                  <MemoryCreator site={site} onMemoryCreated={handleMemoryCreated} />
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
         </ScrollArea>

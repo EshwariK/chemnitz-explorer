@@ -17,13 +17,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Image from "next/image"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const navigation = [
   { name: "Home", href: "/" },
   { name: "Map", href: "/map" },
   // { name: "Favorites", href: "/favorites" },
+  { name: "Tiny Perfect Things", href: "/tiny-perfect-things" },
   // { name: "Dashboard", href: "/dashboard" },
   { name: "API Docs", href: "/docs" },
 ]

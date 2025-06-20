@@ -176,3 +176,49 @@
   inset: 0;
   z-index: 1;
 }
+
+/* Memory map magical effects */
+.memory-popup .leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(16, 185, 129, 0.15), 0 4px 16px rgba(0, 0, 0, 0.1);
+  border: 2px solid rgb(167, 243, 208);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(236, 253, 245, 0.95) 100%);
+  backdrop-filter: blur(8px);
+}
+
+.memory-popup .leaflet-popup-tip {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(236, 253, 245, 0.95) 100%);
+  border: 2px solid rgb(167, 243, 208);
+  border-bottom: none;
+  border-right: none;
+}
+
+.dark .memory-popup .leaflet-popup-content-wrapper {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(6, 78, 59, 0.95) 100%);
+  border-color: rgb(52, 211, 153);
+}
+
+.dark .memory-popup .leaflet-popup-tip {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(6, 78, 59, 0.95) 100%);
+  border-color: rgb(52, 211, 153);
+}
+
+/* Gentle animations for memory markers */
+.memory-marker {
+  filter: drop-shadow(0 4px 8px rgba(16, 185, 129, 0.3));
+}
+
+/* Line clamp utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
