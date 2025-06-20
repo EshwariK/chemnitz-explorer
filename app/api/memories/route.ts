@@ -57,9 +57,32 @@ export async function POST(request: Request) {
 
     console.log(`Processing ${files.length} files`) // Debug log
 
+    // Check total size before processing
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0)
+    if (totalSize > 6 * 1024 * 1024) {
+      // 6MB total limit
+      return NextResponse.json(
+        {
+          error: "Total image size too large. Please use smaller images or reduce the number of images.",
+        },
+        { status: 413 },
+      )
+    }
+
     for (const file of files) {
       if (file.size > 0) {
         console.log(`Processing file: ${file.name}, size: ${file.size}, type: ${file.type}`) // Debug log
+
+        // Individual file size check
+        if (file.size > 2 * 1024 * 1024) {
+          // 2MB per file
+          return NextResponse.json(
+            {
+              error: `Image ${file.name} is too large. Please compress it to under 2MB.`,
+            },
+            { status: 413 },
+          )
+        }
 
         const arrayBuffer = await file.arrayBuffer()
         const buffer = Buffer.from(arrayBuffer)
@@ -81,6 +104,18 @@ export async function POST(request: Request) {
 
     if (images.length === 0) {
       return NextResponse.json({ error: "At least one image is required" }, { status: 400 })
+    }
+
+    // Final payload size check
+    const totalBufferSize = images.reduce((sum, img) => sum + img.data.length, 0)
+    if (totalBufferSize > 5 * 1024 * 1024) {
+      // 5MB buffer limit
+      return NextResponse.json(
+        {
+          error: "Images are too large for processing. Please use smaller images.",
+        },
+        { status: 413 },
+      )
     }
 
     const memoryData = {
@@ -105,6 +140,19 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error("Error creating memory:", error)
+
+    // Handle specific error types
+    if (error instanceof Error) {
+      if (error.message.includes("too large") || error.message.includes("413")) {
+        return NextResponse.json(
+          {
+            error: "Request too large. Please use smaller images.",
+          },
+          { status: 413 },
+        )
+      }
+    }
+
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

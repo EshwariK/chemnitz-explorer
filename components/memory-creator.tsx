@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
-import { Camera, Upload, X, Loader2, Sparkles, Heart } from "lucide-react"
+import { Camera, Upload, X, Loader2, Sparkles, Heart, AlertTriangle } from "lucide-react"
 import { useSession } from "next-auth/react"
 import type { CulturalSite } from "@/lib/cultural-sites-service"
 import Image from "next/image"
@@ -18,6 +18,56 @@ import Image from "next/image"
 interface MemoryCreatorProps {
   site: CulturalSite
   onMemoryCreated?: () => void
+}
+
+// Image compression utility
+const compressImage = (file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.8): Promise<File> => {
+  return new Promise((resolve) => {
+    const canvas = document.createElement("canvas")
+    const ctx = canvas.getContext("2d")!
+    const img = new window.Image()
+
+    img.onload = () => {
+      // Calculate new dimensions
+      let { width, height } = img
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width
+          width = maxWidth
+        }
+      } else {
+        if (height > maxHeight) {
+          width = (width * maxHeight) / height
+          height = maxHeight
+        }
+      }
+
+      canvas.width = width
+      canvas.height = height
+
+      // Draw and compress
+      ctx.drawImage(img, 0, 0, width, height)
+
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            })
+            resolve(compressedFile)
+          } else {
+            resolve(file)
+          }
+        },
+        "image/jpeg",
+        quality,
+      )
+    }
+
+    img.src = URL.createObjectURL(file)
+  })
 }
 
 export function MemoryCreator({ site, onMemoryCreated }: MemoryCreatorProps) {
@@ -32,40 +82,79 @@ export function MemoryCreator({ site, onMemoryCreated }: MemoryCreatorProps) {
   })
   const [selectedImages, setSelectedImages] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
+  const [compressing, setCompressing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
-    const validFiles = files.filter((file) => {
-      const isValidType = file.type.startsWith("image/")
-      const isValidSize = file.size <= 5 * 1024 * 1024 // 5MB limit
 
-      if (!isValidType) {
-        toast.warning("Please select only image files (JPEG, PNG, etc.)")
-      }
-
-      if (!isValidSize) {
-        toast.warning("Please select images smaller than 5MB")
-      }
-
-      return isValidType && isValidSize
-    })
-
-    if (validFiles.length + selectedImages.length > 3) {
+    if (files.length + selectedImages.length > 3) {
       toast.warning("You can upload up to 3 images per memory")
       return
     }
 
-    setSelectedImages((prev) => [...prev, ...validFiles])
+    setCompressing(true)
 
-    // Create previews
-    validFiles.forEach((file) => {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setImagePreviews((prev) => [...prev, e.target?.result as string])
+    try {
+      const processedFiles: File[] = []
+      const newPreviews: string[] = []
+
+      for (const file of files) {
+        // Validate file type
+        if (!file.type.startsWith("image/")) {
+          toast.warning(`${file.name} is not a valid image file`)
+          continue
+        }
+
+        // Check original file size (warn if very large)
+        if (file.size > 10 * 1024 * 1024) {
+          // 10MB
+          toast.warning(`${file.name} is very large and will be compressed`)
+        }
+
+        try {
+          // Compress the image
+          const compressedFile = await compressImage(file, 1200, 1200, 0.8)
+
+          // Final size check after compression
+          if (compressedFile.size > 2 * 1024 * 1024) {
+            // 2MB
+            // Try more aggressive compression
+            const moreCompressed = await compressImage(file, 800, 800, 0.6)
+            if (moreCompressed.size > 2 * 1024 * 1024) {
+              toast.warning(`${file.name} is still too large after compression. Please use a smaller image.`)
+              continue
+            }
+            processedFiles.push(moreCompressed)
+          } else {
+            processedFiles.push(compressedFile)
+          }
+
+          // Create preview
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            newPreviews.push(e.target?.result as string)
+            if (newPreviews.length === processedFiles.length) {
+              setImagePreviews((prev) => [...prev, ...newPreviews])
+            }
+          }
+          reader.readAsDataURL(compressedFile)
+        } catch (error) {
+          console.error(`Error processing ${file.name}:`, error)
+          toast.error(`Failed to process ${file.name}`)
+        }
       }
-      reader.readAsDataURL(file)
-    })
+
+      if (processedFiles.length > 0) {
+        setSelectedImages((prev) => [...prev, ...processedFiles])
+        toast.success(`${processedFiles.length} image(s) processed and compressed`)
+      }
+    } catch (error) {
+      console.error("Error processing images:", error)
+      toast.error("Failed to process images")
+    } finally {
+      setCompressing(false)
+    }
   }
 
   const removeImage = (index: number) => {
@@ -83,6 +172,16 @@ export function MemoryCreator({ site, onMemoryCreated }: MemoryCreatorProps) {
 
     if (selectedImages.length === 0) {
       toast.error("Please add at least one image to your memory")
+      return
+    }
+
+    // Check total payload size
+    const totalSize = selectedImages.reduce((sum, file) => sum + file.size, 0)
+    const estimatedPayloadSize = totalSize + 50000 // Add overhead for other form data
+
+    if (estimatedPayloadSize > 4.5 * 1024 * 1024) {
+      // 4.5MB limit (conservative)
+      toast.error("Total image size is too large. Please remove some images or use smaller ones.")
       return
     }
 
@@ -119,11 +218,20 @@ export function MemoryCreator({ site, onMemoryCreated }: MemoryCreatorProps) {
         setShowForm(false)
         onMemoryCreated?.()
       } else {
-        throw new Error("Failed to create memory")
+        const errorData = await response.json()
+        if (response.status === 413 || errorData.error?.includes("too large")) {
+          toast.error("Images are too large. Please use smaller images or reduce the number of images.")
+        } else {
+          throw new Error(errorData.error || "Failed to create memory")
+        }
       }
     } catch (error) {
       console.error("Error creating memory:", error)
-      toast.error("Failed to create memory. Please try again.")
+      if (error instanceof Error && error.message.includes("413")) {
+        toast.error("Images are too large for upload. Please use smaller images.")
+      } else {
+        toast.error("Failed to create memory. Please try again.")
+      }
     } finally {
       setIsCreating(false)
     }
@@ -175,6 +283,16 @@ export function MemoryCreator({ site, onMemoryCreated }: MemoryCreatorProps) {
           {/* Image Upload */}
           <div className="space-y-3">
             <Label className="text-sm font-medium">Photos</Label>
+
+            {/* Size warning */}
+            <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-lg">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                Images will be automatically compressed to ensure fast upload. Maximum 3 images, 2MB each after
+                compression.
+              </p>
+            </div>
+
             <div className="grid grid-cols-3 gap-3">
               {imagePreviews.map((preview, index) => (
                 <div key={index} className="relative group">
@@ -195,6 +313,10 @@ export function MemoryCreator({ site, onMemoryCreated }: MemoryCreatorProps) {
                   >
                     <X className="h-3 w-3" />
                   </Button>
+                  {/* Show file size */}
+                  <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-1 rounded">
+                    {(selectedImages[index]?.size / 1024).toFixed(0)}KB
+                  </div>
                 </div>
               ))}
 
@@ -202,10 +324,20 @@ export function MemoryCreator({ site, onMemoryCreated }: MemoryCreatorProps) {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="h-24 border-2 border-dashed border-emerald-300 rounded-lg flex flex-col items-center justify-center text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors"
+                  disabled={compressing}
+                  className="h-24 border-2 border-dashed border-emerald-300 rounded-lg flex flex-col items-center justify-center text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors disabled:opacity-50"
                 >
-                  <Upload className="h-5 w-5 mb-1" />
-                  <span className="text-xs">Add Photo</span>
+                  {compressing ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mb-1 animate-spin" />
+                      <span className="text-xs">Processing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-5 w-5 mb-1" />
+                      <span className="text-xs">Add Photo</span>
+                    </>
+                  )}
                 </button>
               )}
             </div>
@@ -217,7 +349,9 @@ export function MemoryCreator({ site, onMemoryCreated }: MemoryCreatorProps) {
               onChange={handleImageSelect}
               className="hidden"
             />
-            <p className="text-xs text-muted-foreground">Upload up to 3 images (max 5MB each)</p>
+            <p className="text-xs text-muted-foreground">
+              Upload up to 3 images. Large images will be automatically compressed for faster upload.
+            </p>
           </div>
 
           {/* Title */}
@@ -292,7 +426,7 @@ export function MemoryCreator({ site, onMemoryCreated }: MemoryCreatorProps) {
             </Button>
             <Button
               type="submit"
-              disabled={isCreating || !formData.note.trim() || selectedImages.length === 0}
+              disabled={isCreating || !formData.note.trim() || selectedImages.length === 0 || compressing}
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               {isCreating ? (
