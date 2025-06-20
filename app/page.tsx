@@ -29,6 +29,7 @@ export default function HomePage() {
     hasMore: false,
     totalPages: 0,
   })
+  const [mapSites, setMapSites] = useState<CulturalSite[]>([])
   const [currentFilters, setCurrentFilters] = useState({
     search: "",
     category: "all",
@@ -57,6 +58,7 @@ export default function HomePage() {
   // Load initial sites
   useEffect(() => {
     loadSites(1, {})
+    loadAllSitesForMap({})
   }, [])
 
   const loadSites = async (page: number, filters: SearchFilterType, append = false) => {
@@ -99,6 +101,29 @@ export default function HomePage() {
     }
   }
 
+  const loadAllSitesForMap = async (filters: SearchFilterType) => {
+    try {
+      const params = new URLSearchParams({
+        limit: "1000", // Load many more sites for the map
+      })
+
+      if (filters.search) {
+        params.append("search", filters.search)
+      }
+      if (filters.category && filters.category !== "all") {
+        params.append("category", filters.category)
+      }
+
+      const response = await fetch(`/api/cultural-sites?${params}`)
+      if (response.ok) {
+        const data = await response.json()
+        setMapSites(data.data)
+      }
+    } catch (error) {
+      console.error("Error loading sites for map:", error)
+    }
+  }
+
   const loadNearbySites = async (lat: number, lng: number, radius = 5) => {
     setSearchState((prev) => ({ ...prev, loading: true }))
 
@@ -107,6 +132,7 @@ export default function HomePage() {
       if (response.ok) {
         const nearbySites = await response.json()
 
+        // Update both list and map with the same nearby sites
         setSearchState({
           sites: nearbySites,
           loading: false,
@@ -114,6 +140,8 @@ export default function HomePage() {
           hasMore: false,
           totalPages: 1,
         })
+
+        setMapSites(nearbySites)
 
         setCurrentFilters({
           search: `Within ${radius}km of your location`,
@@ -132,6 +160,7 @@ export default function HomePage() {
   const handleSearch = (filters: { search: string; category: string }) => {
     setCurrentFilters(filters)
     loadSites(1, filters)
+    loadAllSitesForMap(filters)
   }
 
   const handleLoadMore = () => {
@@ -150,25 +179,16 @@ export default function HomePage() {
   const handleMarkerClick = (site: CulturalSite) => {
     const siteId = site._id?.toString()
     setHighlightedSiteId(siteId || null)
-
-    // Switch to list view and scroll to the corresponding result item
-    // setActiveView("list")
-    // setTimeout(() => {
-    //   const element = document.getElementById(`site-${siteId}`)
-    //   if (element) {
-    //     element.scrollIntoView({ behavior: "smooth", block: "center" })
-    //   }
-    // }, 100)
   }
 
   const handleLocationFound = (lat: number, lng: number) => {
-  setUserLocation((prev) => {
-    if (!prev || prev.lat !== lat || prev.lng !== lng) {
-      return { lat, lng }
-    }
-    return prev
-  })
-}
+    setUserLocation((prev) => {
+      if (!prev || prev.lat !== lat || prev.lng !== lng) {
+        return { lat, lng }
+      }
+      return prev
+    })
+  }
 
   const handleFindNearby = () => {
     if (userLocation) {
@@ -230,7 +250,7 @@ export default function HomePage() {
           <TabsContent value="map" className="mt-6">
             <div className="space-y-6">
               <MapPreview
-                sites={searchState.sites}
+                sites={mapSites}
                 highlightedSiteId={highlightedSiteId}
                 onMarkerClick={handleMarkerClick}
                 onLocationFound={handleLocationFound}
@@ -267,14 +287,14 @@ export default function HomePage() {
           </TabsContent>
 
           <TabsContent value="list" className="mt-6">
-              <ResultsList
-                sites={searchState.sites}
-                loading={searchState.loading}
-                onLoadMore={handleLoadMore}
-                hasMore={searchState.hasMore}
-                onSiteClick={handleSiteClick}
-                highlightedSiteId={highlightedSiteId}
-              />
+            <ResultsList
+              sites={searchState.sites}
+              loading={searchState.loading}
+              onLoadMore={handleLoadMore}
+              hasMore={searchState.hasMore}
+              onSiteClick={handleSiteClick}
+              highlightedSiteId={highlightedSiteId}
+            />
           </TabsContent>
         </Tabs>
       </div>

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { Sparkles, Calendar, Eye, MapPin, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
+import { Sparkles, Calendar, Eye, MapPin, AlertCircle, ChevronLeft, ChevronRight, Users } from "lucide-react"
 import type { UserMemory } from "@/lib/memory-service"
 import Image from "next/image"
 
@@ -20,10 +20,48 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 })
 
-// Create magical memory marker
-const createMemoryIcon = (isPersonal = false) => {
+// Group memories by location (within ~50 meters)
+const groupMemoriesByLocation = (memories: UserMemory[]) => {
+  const groups: Array<{ memories: UserMemory[]; center: { lat: number; lng: number } }> = []
+  const threshold = 0.0005 // Approximately 50 meters
+
+  for (const memory of memories) {
+    let foundGroup = false
+
+    for (const group of groups) {
+      const distance = Math.sqrt(
+        Math.pow(group.center.lat - memory.coordinates.lat, 2) + Math.pow(group.center.lng - memory.coordinates.lng, 2),
+      )
+
+      if (distance <= threshold) {
+        group.memories.push(memory)
+        // Update center to average position
+        const totalLat = group.memories.reduce((sum, m) => sum + m.coordinates.lat, 0)
+        const totalLng = group.memories.reduce((sum, m) => sum + m.coordinates.lng, 0)
+        group.center = {
+          lat: totalLat / group.memories.length,
+          lng: totalLng / group.memories.length,
+        }
+        foundGroup = true
+        break
+      }
+    }
+
+    if (!foundGroup) {
+      groups.push({
+        memories: [memory],
+        center: { lat: memory.coordinates.lat, lng: memory.coordinates.lng },
+      })
+    }
+  }
+
+  return groups
+}
+
+// Create magical memory marker with count
+const createMemoryIcon = (count: number, isPersonal = false) => {
   const color = isPersonal ? "#ec4899" : "#10b981" // Pink for personal, emerald for public
-  const size = 30
+  const size = count > 1 ? 35 : 30
 
   return L.divIcon({
     html: `
@@ -52,11 +90,14 @@ const createMemoryIcon = (isPersonal = false) => {
         ">
           <div style="
             color: white; 
-            font-size: 14px; 
+            font-size: ${count > 1 ? "12px" : "14px"}; 
             font-weight: bold;
             text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 2px;
           ">
-            ✨
+            ${count > 1 ? `${count}✨` : "✨"}
           </div>
           <div style="
             position: absolute;
@@ -95,6 +136,7 @@ interface TinyPerfectMapProps {
 
 export function TinyPerfectMap({ memories, height = "500px", personalMap = false }: TinyPerfectMapProps) {
   const [isClient, setIsClient] = useState(false)
+  const [selectedMemories, setSelectedMemories] = useState<UserMemory[]>([])
   const [selectedMemory, setSelectedMemory] = useState<UserMemory | null>(null)
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
 
@@ -125,11 +167,14 @@ export function TinyPerfectMap({ memories, height = "500px", personalMap = false
     )
   }
 
+  // Group memories by location
+  const memoryGroups = groupMemoriesByLocation(memories)
+
   // Default center (Chemnitz)
   const defaultCenter: [number, number] = [50.8278, 12.9214]
   const center =
-    memories.length > 0
-      ? ([memories[0].coordinates.lat, memories[0].coordinates.lng] as [number, number])
+    memoryGroups.length > 0
+      ? ([memoryGroups[0].center.lat, memoryGroups[0].center.lng] as [number, number])
       : defaultCenter
 
   return (
@@ -146,95 +191,35 @@ export function TinyPerfectMap({ memories, height = "500px", personalMap = false
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          {/* Memory markers */}
-          {memories.map((memory) => (
+          {/* Memory group markers */}
+          {memoryGroups.map((group, groupIndex) => (
             <Marker
-              key={memory._id?.toString()}
-              position={[memory.coordinates.lat, memory.coordinates.lng]}
-              icon={createMemoryIcon(personalMap)}
+              key={groupIndex}
+              position={[group.center.lat, group.center.lng]}
+              icon={createMemoryIcon(group.memories.length, personalMap)}
             >
-              <Popup className="memory-popup">
-                <div className="p-2 min-w-[280px] max-w-[320px]">
-                  <div className="space-y-3">
-                    {/* Header */}
-                    <div className="flex items-start gap-3">
-                      {memory.images.length > 0 && (
-                        <div className="w-16 h-16 flex-shrink-0">
-                          {imageErrors.has(memory.images[0].id) ? (
-                            <div className="w-16 h-16 bg-muted rounded-lg border-2 border-emerald-200 flex items-center justify-center">
-                              <AlertCircle className="h-6 w-6 text-muted-foreground" />
-                            </div>
-                          ) : (
-                            <Image
-                              src={getImageUrl(memory._id?.toString() || "", memory.images[0].id)}
-                              alt={memory.title || "Memory"}
-                              width={64}
-                              height={64}
-                              className="w-16 h-16 object-cover rounded-lg border-2 border-emerald-200"
-                              onError={() => handleImageError(memory.images[0].id)}
-                              unoptimized
-                            />
-                          )}
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        {memory.title && (
-                          <h4 className="font-semibold text-emerald-800 dark:text-emerald-200 mb-1 line-clamp-2">
-                            {memory.title}
-                          </h4>
-                        )}
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                          <MapPin className="h-3 w-3" />
-                          <span className="truncate">{memory.siteName}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          {new Date(memory.createdAt).toLocaleDateString()}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Note */}
-                    <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 leading-relaxed">
-                      {memory.note}
-                    </p>
-
-                    {/* Tags */}
-                    {memory.tags && memory.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {memory.tags.slice(0, 3).map((tag, index) => (
-                          <Badge
-                            key={index}
-                            variant="outline"
-                            className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-300"
-                          >
-                            {tag}
-                          </Badge>
-                        ))}
-                        {memory.tags.length > 3 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{memory.tags.length - 3}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex items-center justify-between pt-2">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        {memory.images.length > 1 && <span>+{memory.images.length - 1} more photos</span>}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setSelectedMemory(memory)}
-                        className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 border-emerald-200"
-                      >
-                        <Eye className="h-3 w-3 mr-1" />
-                        View
-                      </Button>
-                    </div>
-                  </div>
+              <Popup className="memory-popup" maxWidth={400}>
+                <div className="p-2 min-w-[320px] max-w-[380px]">
+                  {group.memories.length === 1 ? (
+                    // Single memory popup
+                    <SingleMemoryPopup
+                      memory={group.memories[0]}
+                      onViewDetails={() => setSelectedMemory(group.memories[0])}
+                      imageErrors={imageErrors}
+                      onImageError={handleImageError}
+                      getImageUrl={getImageUrl}
+                    />
+                  ) : (
+                    // Multiple memories popup
+                    <MultipleMemoriesPopup
+                      memories={group.memories}
+                      onViewAll={() => setSelectedMemories(group.memories)}
+                      onViewSingle={(memory) => setSelectedMemory(memory)}
+                      imageErrors={imageErrors}
+                      onImageError={handleImageError}
+                      getImageUrl={getImageUrl}
+                    />
+                  )}
                 </div>
               </Popup>
             </Marker>
@@ -252,13 +237,20 @@ export function TinyPerfectMap({ memories, height = "500px", personalMap = false
                 <Sparkles className="h-4 w-4 text-emerald-500" />
                 <span className="font-medium">{memories.length}</span>
                 <span className="text-muted-foreground">{personalMap ? "Your Memories" : "Perfect Moments"}</span>
+                {memoryGroups.length !== memories.length && (
+                  <>
+                    <span className="text-muted-foreground">•</span>
+                    <span className="font-medium">{memoryGroups.length}</span>
+                    <span className="text-muted-foreground">locations</span>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Memory Detail Modal */}
+      {/* Single Memory Detail Modal */}
       {selectedMemory && (
         <MemoryDetailModal
           memory={selectedMemory}
@@ -268,7 +260,316 @@ export function TinyPerfectMap({ memories, height = "500px", personalMap = false
           onImageError={handleImageError}
         />
       )}
+
+      {/* Multiple Memories Modal */}
+      {selectedMemories.length > 0 && (
+        <MultipleMemoriesModal
+          memories={selectedMemories}
+          open={selectedMemories.length > 0}
+          onOpenChange={() => setSelectedMemories([])}
+          onSelectMemory={(memory) => {
+            setSelectedMemories([])
+            setSelectedMemory(memory)
+          }}
+          imageErrors={imageErrors}
+          onImageError={handleImageError}
+          getImageUrl={getImageUrl}
+        />
+      )}
     </div>
+  )
+}
+
+// Single memory popup component
+function SingleMemoryPopup({
+  memory,
+  onViewDetails,
+  imageErrors,
+  onImageError,
+  getImageUrl,
+}: {
+  memory: UserMemory
+  onViewDetails: () => void
+  imageErrors: Set<string>
+  onImageError: (imageId: string) => void
+  getImageUrl: (memoryId: string, imageId: string) => string
+}) {
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        {memory.images.length > 0 && (
+          <div className="w-16 h-16 flex-shrink-0">
+            {imageErrors.has(memory.images[0].id) ? (
+              <div className="w-16 h-16 bg-muted rounded-lg border-2 border-emerald-200 flex items-center justify-center">
+                <AlertCircle className="h-6 w-6 text-muted-foreground" />
+              </div>
+            ) : (
+              <Image
+                src={getImageUrl(memory._id?.toString() || "", memory.images[0].id)}
+                alt={memory.title || "Memory"}
+                width={64}
+                height={64}
+                className="w-16 h-16 object-cover rounded-lg border-2 border-emerald-200"
+                onError={() => onImageError(memory.images[0].id)}
+                unoptimized
+              />
+            )}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          {memory.title && (
+            <h4 className="font-semibold text-emerald-800 dark:text-emerald-200 mb-1 line-clamp-2">{memory.title}</h4>
+          )}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+            <MapPin className="h-3 w-3" />
+            <span className="truncate">{memory.siteName}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Calendar className="h-3 w-3" />
+            {new Date(memory.createdAt).toLocaleDateString()}
+          </div>
+        </div>
+      </div>
+
+      {/* Note */}
+      <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 leading-relaxed">{memory.note}</p>
+
+      {/* Tags */}
+      {memory.tags && memory.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {memory.tags.slice(0, 3).map((tag, index) => (
+            <Badge
+              key={index}
+              variant="outline"
+              className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-300"
+            >
+              {tag}
+            </Badge>
+          ))}
+          {memory.tags.length > 3 && (
+            <Badge variant="outline" className="text-xs">
+              +{memory.tags.length - 3}
+            </Badge>
+          )}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          {memory.images.length > 1 && <span>+{memory.images.length - 1} more photos</span>}
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onViewDetails}
+          className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 border-emerald-200"
+        >
+          <Eye className="h-3 w-3 mr-1" />
+          View
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// Multiple memories popup component
+function MultipleMemoriesPopup({
+  memories,
+  onViewAll,
+  onViewSingle,
+  imageErrors,
+  onImageError,
+  getImageUrl,
+}: {
+  memories: UserMemory[]
+  onViewAll: () => void
+  onViewSingle: (memory: UserMemory) => void
+  imageErrors: Set<string>
+  onImageError: (imageId: string) => void
+  getImageUrl: (memoryId: string, imageId: string) => string
+}) {
+  const siteName = memories[0]?.siteName || "This location"
+
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-3">
+        <Users className="h-5 w-5 text-emerald-600" />
+        <div>
+          <h4 className="font-semibold text-emerald-800 dark:text-emerald-200">
+            {memories.length} Memories at {siteName}
+          </h4>
+          <p className="text-xs text-muted-foreground">Multiple visitors shared their moments here</p>
+        </div>
+      </div>
+
+      {/* Preview of first few memories */}
+      <div className="space-y-2 max-h-48 overflow-y-auto">
+        {memories.slice(0, 3).map((memory) => (
+          <div
+            key={memory._id?.toString()}
+            className="flex items-center gap-3 p-2 bg-emerald-50/50 dark:bg-emerald-950/10 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/20 cursor-pointer transition-colors"
+            onClick={() => onViewSingle(memory)}
+          >
+            {memory.images.length > 0 && (
+              <div className="w-10 h-10 flex-shrink-0">
+                {imageErrors.has(memory.images[0].id) ? (
+                  <div className="w-10 h-10 bg-muted rounded border border-emerald-200 flex items-center justify-center">
+                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                ) : (
+                  <Image
+                    src={getImageUrl(memory._id?.toString() || "", memory.images[0].id)}
+                    alt={memory.title || "Memory"}
+                    width={40}
+                    height={40}
+                    className="w-10 h-10 object-cover rounded border border-emerald-200"
+                    onError={() => onImageError(memory.images[0].id)}
+                    unoptimized
+                  />
+                )}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              {memory.title && (
+                <p className="font-medium text-sm text-emerald-800 dark:text-emerald-200 line-clamp-1">
+                  {memory.title}
+                </p>
+              )}
+              <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">{memory.note}</p>
+              <p className="text-xs text-muted-foreground">{new Date(memory.createdAt).toLocaleDateString()}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2 pt-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onViewAll}
+          className="flex-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 border-emerald-200"
+        >
+          <Users className="h-3 w-3 mr-1" />
+          View All {memories.length}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// Multiple memories modal
+function MultipleMemoriesModal({
+  memories,
+  open,
+  onOpenChange,
+  onSelectMemory,
+  imageErrors,
+  onImageError,
+  getImageUrl,
+}: {
+  memories: UserMemory[]
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSelectMemory: (memory: UserMemory) => void
+  imageErrors: Set<string>
+  onImageError: (imageId: string) => void
+  getImageUrl: (memoryId: string, imageId: string) => string
+}) {
+  const siteName = memories[0]?.siteName || "This location"
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh]">
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-center gap-2">
+            <Users className="h-6 w-6 text-emerald-600" />
+            <div>
+              <h3 className="text-xl font-semibold text-emerald-800 dark:text-emerald-200">
+                {memories.length} Memories at {siteName}
+              </h3>
+              <p className="text-sm text-muted-foreground">Click on any memory to view details</p>
+            </div>
+          </div>
+
+          {/* Memories grid */}
+          <div className="grid gap-3 max-h-[60vh] overflow-y-auto">
+            {memories.map((memory) => (
+              <Card
+                key={memory._id?.toString()}
+                className="overflow-hidden hover:shadow-md transition-all duration-300 border-emerald-100 bg-gradient-to-br from-emerald-50/30 to-green-50/20 dark:from-emerald-950/10 dark:to-green-950/5 cursor-pointer"
+                onClick={() => onSelectMemory(memory)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex gap-4">
+                    {/* Image */}
+                    {memory.images.length > 0 && (
+                      <div className="flex-shrink-0">
+                        {imageErrors.has(memory.images[0].id) ? (
+                          <div className="w-20 h-20 bg-muted rounded-lg border-2 border-emerald-200 flex items-center justify-center">
+                            <AlertCircle className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                        ) : (
+                          <Image
+                            src={getImageUrl(memory._id?.toString() || "", memory.images[0].id)}
+                            alt={memory.title || "Memory"}
+                            width={80}
+                            height={80}
+                            className="w-20 h-20 object-cover rounded-lg border-2 border-emerald-200"
+                            onError={() => onImageError(memory.images[0].id)}
+                            unoptimized
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          {memory.title && (
+                            <h4 className="font-medium text-emerald-800 dark:text-emerald-200 mb-1">{memory.title}</h4>
+                          )}
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(memory.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-3 line-clamp-2">{memory.note}</p>
+
+                      {memory.tags && memory.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {memory.tags.slice(0, 3).map((tag, index) => (
+                            <Badge
+                              key={index}
+                              variant="outline"
+                              className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-300"
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                          {memory.tags.length > 3 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{memory.tags.length - 3}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
