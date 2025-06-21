@@ -239,7 +239,7 @@ export function InteractiveMap({
   return (
     <>
       {/* Map container */}
-        <div className={`rounded-lg overflow-hidden z-40 border relative ${className}`} style={{ height }}>
+      <div className={`rounded-lg overflow-hidden z-40 border relative ${className}`} style={{ height }}>
         <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }} zoomControl={true}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -359,7 +359,7 @@ export function InteractiveMap({
                         </div>
                       )}
 
-                      {/* In the Popup content, add favorite button: */}
+                      {/* Action buttons */}
                       {(() => {
                         const siteId = site._id?.toString()
                         const isCurrentlyFavorited = isFavorited(siteId)
