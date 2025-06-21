@@ -3,6 +3,108 @@ import { getServerSession } from "next-auth/next"
 import { UserService } from "@/lib/user-service"
 import { authOptions } from "@/lib/auth-options"
 
+/**
+ * @swagger
+ * /api/user/location:
+ *   get:
+ *     summary: Get user's saved location
+ *     tags: [User Management]
+ *     security:
+ *       - sessionAuth: []
+ *     responses:
+ *       200:
+ *         description: User's location data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 location:
+ *                   type: object
+ *                   properties:
+ *                     lat:
+ *                       type: number
+ *                     lng:
+ *                       type: number
+ *                     accuracy:
+ *                       type: number
+ *                     address:
+ *                       type: string
+ *                     lastUpdated:
+ *                       type: string
+ *                       format: date-time
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   post:
+ *     summary: Update user's location
+ *     tags: [User Management]
+ *     security:
+ *       - sessionAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - lat
+ *               - lng
+ *             properties:
+ *               lat:
+ *                 type: number
+ *                 description: Latitude
+ *               lng:
+ *                 type: number
+ *                 description: Longitude
+ *               accuracy:
+ *                 type: number
+ *                 description: Location accuracy in meters
+ *               address:
+ *                 type: string
+ *                 description: Human-readable address
+ *     responses:
+ *       200:
+ *         description: Location updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 location:
+ *                   type: object
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Missing required coordinates
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 export async function GET() {
   const session = await getServerSession(authOptions)
 

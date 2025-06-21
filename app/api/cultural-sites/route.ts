@@ -20,8 +20,8 @@ import type { SearchFilters } from "@/lib/cultural-sites-service"
  *         schema:
  *           type: integer
  *           default: 20
- *           maximum: 100
- *         description: Number of items per page
+ *           maximum: 1000
+ *         description: Number of results per page
  *       - in: query
  *         name: category
  *         schema:
@@ -32,7 +32,7 @@ import type { SearchFilters } from "@/lib/cultural-sites-service"
  *         name: search
  *         schema:
  *           type: string
- *         description: Search in name, description, and address
+ *         description: Search term for site names and descriptions
  *       - in: query
  *         name: north
  *         schema:
@@ -65,17 +65,11 @@ import type { SearchFilters } from "@/lib/cultural-sites-service"
  *         description: Filter for sites with parking
  *     responses:
  *       200:
- *         description: List of cultural sites
+ *         description: Paginated list of cultural sites
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/PaginatedResponse'
- *       400:
- *         description: Bad request
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  *       500:
  *         description: Internal server error
  *         content:

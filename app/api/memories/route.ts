@@ -3,6 +3,141 @@ import { getServerSession } from "next-auth/next"
 import { MemoryService } from "@/lib/memory-service"
 import { authOptions } from "@/lib/auth-options"
 
+/**
+ * @swagger
+ * /api/memories:
+ *   get:
+ *     summary: Get memories with various filters
+ *     tags: [Memories]
+ *     parameters:
+ *       - in: query
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         description: Get memories for specific user
+ *       - in: query
+ *         name: siteId
+ *         schema:
+ *           type: string
+ *         description: Get memories for specific site
+ *       - in: query
+ *         name: public
+ *         schema:
+ *           type: boolean
+ *         description: Get only public memories
+ *     responses:
+ *       200:
+ *         description: List of memories
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Memory'
+ *       400:
+ *         description: Invalid parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   post:
+ *     summary: Create a new memory
+ *     tags: [Memories]
+ *     security:
+ *       - sessionAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - siteId
+ *               - siteName
+ *               - siteCategory
+ *               - lat
+ *               - lng
+ *               - note
+ *               - images
+ *             properties:
+ *               siteId:
+ *                 type: string
+ *                 description: ID of the cultural site
+ *               siteName:
+ *                 type: string
+ *                 description: Name of the cultural site
+ *               siteCategory:
+ *                 type: string
+ *                 description: Category of the cultural site
+ *               lat:
+ *                 type: number
+ *                 description: Latitude coordinate
+ *               lng:
+ *                 type: number
+ *                 description: Longitude coordinate
+ *               title:
+ *                 type: string
+ *                 description: Optional title for the memory
+ *               note:
+ *                 type: string
+ *                 description: Memory description/note
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Image files (max 2MB each, 6MB total)
+ *               tags:
+ *                 type: string
+ *                 description: Comma-separated tags
+ *               isPublic:
+ *                 type: boolean
+ *                 description: Whether memory is publicly visible
+ *     responses:
+ *       200:
+ *         description: Memory created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 memoryId:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       413:
+ *         description: Request entity too large
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const userId = searchParams.get("userId")
