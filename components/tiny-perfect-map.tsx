@@ -8,9 +8,25 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { Sparkles, Calendar, Eye, MapPin, AlertCircle, ChevronLeft, ChevronRight, Users } from "lucide-react"
+import {
+  Sparkles,
+  Calendar,
+  Eye,
+  MapPin,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Users,
+  Trash2,
+  AlertTriangle,
+  Loader2,
+  Info,
+} from "lucide-react"
 import type { UserMemory } from "@/lib/memory-service"
+import type { CulturalSite } from "@/lib/cultural-sites-service"
 import Image from "next/image"
+import { toast } from "sonner"
+import { SiteDetailsModal } from "./site-details-modal"
 
 // Fix for default markers
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl
@@ -132,13 +148,23 @@ interface TinyPerfectMapProps {
   height?: string
   showUserLocation?: boolean
   personalMap?: boolean
+  onMemoryDeleted?: () => void
+  currentUserId?: string
 }
 
-export function TinyPerfectMap({ memories, height = "500px", personalMap = false }: TinyPerfectMapProps) {
+export function TinyPerfectMap({
+  memories,
+  height = "500px",
+  personalMap = false,
+  onMemoryDeleted,
+  currentUserId,
+}: TinyPerfectMapProps) {
   const [isClient, setIsClient] = useState(false)
   const [selectedMemories, setSelectedMemories] = useState<UserMemory[]>([])
   const [selectedMemory, setSelectedMemory] = useState<UserMemory | null>(null)
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
+  const [selectedSite, setSelectedSite] = useState<CulturalSite | null>(null)
+  const [showSiteModal, setShowSiteModal] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
@@ -151,6 +177,22 @@ export function TinyPerfectMap({ memories, height = "500px", personalMap = false
 
   const getImageUrl = (memoryId: string, imageId: string) => {
     return `/api/memories/${memoryId}/image/${imageId}`
+  }
+
+  const handleShowSiteDetails = async (memory: UserMemory) => {
+    if (!memory.siteId) return
+
+    try {
+      const response = await fetch(`/api/cultural-sites/${memory.siteId}`)
+      if (response.ok) {
+        const siteData = await response.json()
+        setSelectedSite(siteData)
+        setShowSiteModal(true)
+      }
+    } catch (error) {
+      console.error("Error fetching site details:", error)
+      toast.error("Failed to load site details")
+    }
   }
 
   if (!isClient) {
@@ -258,6 +300,9 @@ export function TinyPerfectMap({ memories, height = "500px", personalMap = false
           onOpenChange={() => setSelectedMemory(null)}
           imageErrors={imageErrors}
           onImageError={handleImageError}
+          currentUserId={currentUserId}
+          onMemoryDeleted={onMemoryDeleted}
+          onShowSiteDetails={() => handleShowSiteDetails(selectedMemory)}
         />
       )}
 
@@ -276,6 +321,9 @@ export function TinyPerfectMap({ memories, height = "500px", personalMap = false
           getImageUrl={getImageUrl}
         />
       )}
+
+      {/* Site Details Modal */}
+      {selectedSite && <SiteDetailsModal site={selectedSite} open={showSiteModal} onOpenChange={setShowSiteModal} />}
     </div>
   )
 }
@@ -587,21 +635,29 @@ function MapBoundsAdjuster({ memories }: { memories: UserMemory[] }) {
   return null
 }
 
-// Memory Detail Modal Component
+// Memory Detail Modal Component (back to single panel)
 function MemoryDetailModal({
   memory,
   open,
   onOpenChange,
   imageErrors,
   onImageError,
+  currentUserId,
+  onMemoryDeleted,
+  onShowSiteDetails,
 }: {
   memory: UserMemory
   open: boolean
   onOpenChange: (open: boolean) => void
   imageErrors: Set<string>
   onImageError: (imageId: string) => void
+  currentUserId?: string
+  onMemoryDeleted?: () => void
+  onShowSiteDetails?: () => void
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const getImageUrl = (memoryId: string, imageId: string) => {
     return `/api/memories/${memoryId}/image/${imageId}`
@@ -615,6 +671,34 @@ function MemoryDetailModal({
     setCurrentImageIndex((prev) => (prev - 1 + memory.images.length) % memory.images.length)
   }
 
+  const handleDelete = async () => {
+    if (!memory._id) return
+
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/memories/${memory._id}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        toast.success("Memory deleted successfully")
+        onMemoryDeleted?.()
+        onOpenChange(false)
+      } else {
+        throw new Error("Failed to delete memory")
+      }
+    } catch (error) {
+      console.error("Error deleting memory:", error)
+      toast.error("Failed to delete memory")
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteConfirm(false)
+    }
+  }
+
+  // Check if current user owns this memory
+  const canDelete = currentUserId && memory.userId === currentUserId
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] p-0">
@@ -625,14 +709,40 @@ function MemoryDetailModal({
               {memory.title && (
                 <h3 className="text-xl font-semibold text-emerald-800 dark:text-emerald-200">{memory.title}</h3>
               )}
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  {new Date(memory.createdAt).toLocaleDateString()}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    {new Date(memory.createdAt).toLocaleDateString()}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    {memory.siteName}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  {memory.siteName}
+                <div className="flex gap-2">
+                  {onShowSiteDetails && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onShowSiteDetails}
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+                    >
+                      <Info className="h-4 w-4 mr-1" />
+                      Site Details
+                    </Button>
+                  )}
+                  {canDelete && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -750,6 +860,41 @@ function MemoryDetailModal({
             )}
           </div>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirm && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm mx-4">
+              <div className="flex items-center gap-3 mb-4">
+                <AlertTriangle className="h-6 w-6 text-red-500" />
+                <h4 className="font-semibold">Delete Memory?</h4>
+              </div>
+              <p className="text-sm text-muted-foreground mb-6">
+                This action cannot be undone. Your memory and all its images will be permanently deleted.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={isDeleting}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleDelete} disabled={isDeleting} className="flex-1">
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

@@ -16,7 +16,6 @@ export default function TinyPerfectThingsPage() {
   const { data: session } = useSession()
   const [allMemories, setAllMemories] = useState<UserMemory[]>([])
   const [userMemories, setUserMemories] = useState<UserMemory[]>([])
-//   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("explore")
 
   useEffect(() => {
@@ -38,13 +37,32 @@ export default function TinyPerfectThingsPage() {
         }
       } catch (error) {
         console.error("Error fetching memories:", error)
-      } //finally {
-    //     setLoading(false)
-    //   }
+      }
     }
 
     fetchMemories()
   }, [session])
+
+  const refreshMemories = async () => {
+    try {
+      const [publicResponse, userResponse] = await Promise.all([
+        fetch("/api/memories?public=true"),
+        session ? fetch(`/api/memories?userId=${session.user.id}`) : Promise.resolve(null),
+      ])
+
+      if (publicResponse.ok) {
+        const publicData = await publicResponse.json()
+        setAllMemories(publicData)
+      }
+
+      if (userResponse && typeof userResponse.json === "function" && userResponse.ok) {
+        const userData = await userResponse.json()
+        setUserMemories(userData)
+      }
+    } catch (error) {
+      console.error("Error refreshing memories:", error)
+    }
+  }
 
   const handleShare = async () => {
     if (navigator.share) {
@@ -77,8 +95,8 @@ export default function TinyPerfectThingsPage() {
             <Sparkles className="h-8 w-8 text-emerald-500 animate-pulse" />
           </div>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            A collection of beautiful moments captured by visitors to Chemnitz&apos;s cultural treasures. Each pin tells a
-            story, each photo holds a memory.
+            A collection of beautiful moments captured by visitors to Chemnitz&apos;s cultural treasures. Each pin tells
+            a story, each photo holds a memory.
           </p>
 
           <div className="flex items-center justify-center gap-4 mt-6">
@@ -125,7 +143,13 @@ export default function TinyPerfectThingsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <TinyPerfectMap memories={allMemories} height="600px" showUserLocation={true} />
+                <TinyPerfectMap
+                  memories={allMemories}
+                  height="600px"
+                  showUserLocation={true}
+                  onMemoryDeleted={refreshMemories}
+                  currentUserId={session?.user?.id}
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -140,7 +164,14 @@ export default function TinyPerfectThingsPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <TinyPerfectMap memories={userMemories} height="600px" showUserLocation={true} personalMap={true} />
+                  <TinyPerfectMap
+                    memories={userMemories}
+                    height="600px"
+                    showUserLocation={true}
+                    personalMap={true}
+                    onMemoryDeleted={refreshMemories}
+                    currentUserId={session?.user?.id}
+                  />
                 </CardContent>
               </Card>
             ) : (

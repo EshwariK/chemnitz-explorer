@@ -9,6 +9,7 @@ import { Loader2, Sparkles, Calendar, User, Eye, AlertCircle, ChevronLeft, Chevr
 import type { CulturalSite } from "@/lib/cultural-sites-service"
 import type { UserMemory } from "@/lib/memory-service"
 import Image from "next/image"
+import { useSession } from "next-auth/react"
 
 interface SiteMemoriesProps {
   site: CulturalSite
@@ -19,6 +20,7 @@ export function SiteMemories({ site }: SiteMemoriesProps) {
   const [loading, setLoading] = useState(true)
   const [selectedMemory, setSelectedMemory] = useState<UserMemory | null>(null)
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
+  const { data: session } = useSession()
 
   useEffect(() => {
     const fetchMemories = async () => {
@@ -46,6 +48,21 @@ export function SiteMemories({ site }: SiteMemoriesProps) {
 
   const getImageUrl = (memoryId: string, imageId: string) => {
     return `/api/memories/${memoryId}/image/${imageId}`
+  }
+
+  const refreshMemories = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/memories?siteId=${site._id}&public=true`)
+      if (response.ok) {
+        const data = await response.json()
+        setMemories(data)
+      }
+    } catch (error) {
+      console.error("Error refreshing memories:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (loading) {
@@ -165,6 +182,8 @@ export function SiteMemories({ site }: SiteMemoriesProps) {
           onOpenChange={() => setSelectedMemory(null)}
           imageErrors={imageErrors}
           onImageError={handleImageError}
+          currentUserId={session?.user?.id}
+          onMemoryDeleted={refreshMemories}
         />
       )}
     </div>
@@ -178,12 +197,16 @@ function MemoryDetailModal({
   onOpenChange,
   imageErrors,
   onImageError,
+  currentUserId,
+  onMemoryDeleted,
 }: {
   memory: UserMemory
   open: boolean
   onOpenChange: (open: boolean) => void
   imageErrors: Set<string>
   onImageError: (imageId: string) => void
+  currentUserId?: string
+  onMemoryDeleted: () => void
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
@@ -199,26 +222,58 @@ function MemoryDetailModal({
     setCurrentImageIndex((prev) => (prev - 1 + memory.images.length) % memory.images.length)
   }
 
+  const handleDeleteMemory = async () => {
+    if (!memory._id) {
+      console.error("Memory ID is missing, cannot delete.")
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/memories/${memory._id}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        console.log("Memory deleted successfully.")
+        onOpenChange(false) // Close the modal
+        onMemoryDeleted() // Refresh the memories list
+      } else {
+        console.error("Failed to delete memory:", response.statusText)
+        // Optionally, display an error message to the user
+      }
+    } catch (error) {
+      console.error("Error deleting memory:", error)
+      // Optionally, display an error message to the user
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] p-0">
         <div className="flex flex-col h-full max-h-[90vh]">
           {/* Header */}
           <div className="p-6 pb-4 border-b">
-            <div className="space-y-2">
-              {memory.title && (
-                <h3 className="text-xl font-semibold text-emerald-800 dark:text-emerald-200">{memory.title}</h3>
-              )}
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  {new Date(memory.createdAt).toLocaleDateString()}
-                </div>
-                <div className="flex items-center gap-1">
-                  <User className="h-4 w-4" />
-                  Anonymous Explorer
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                {memory.title && (
+                  <h3 className="text-xl font-semibold text-emerald-800 dark:text-emerald-200">{memory.title}</h3>
+                )}
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    {new Date(memory.createdAt).toLocaleDateString()}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <User className="h-4 w-4" />
+                    Anonymous Explorer
+                  </div>
                 </div>
               </div>
+              {currentUserId === memory.userId && (
+                <Button variant="destructive" size="sm" onClick={handleDeleteMemory}>
+                  Delete
+                </Button>
+              )}
             </div>
           </div>
 
