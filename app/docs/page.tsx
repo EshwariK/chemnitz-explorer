@@ -30,7 +30,7 @@ export default function ApiDocsPage() {
         <p className="text-muted-foreground">Comprehensive documentation for the Cultural Sites of Chemnitz API</p>
       </div>
       <div className="bg-white rounded-lg shadow-sm">
-        <SwaggerUI spec={spec} />
+        <SwaggerUI url="/swagger.json" />
       </div>
     </div>
   )

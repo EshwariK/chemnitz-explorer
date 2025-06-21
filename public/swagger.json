@@ -1,0 +1,1953 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Cultural Sites of Chemnitz API",
+    "version": "1.0.0",
+    "description": "Comprehensive API for accessing cultural landmarks, user management, memories, and favorites in Chemnitz",
+    "contact": {
+      "name": "Cultural Explorer Team",
+      "email": "contact@cultural-explorer.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Application server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "sessionAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "next-auth.session-token"
+      }
+    },
+    "schemas": {
+      "CulturalSite": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "description": "Unique identifier"
+          },
+          "osmId": {
+            "type": "string",
+            "description": "OpenStreetMap ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the cultural site"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "Theatre",
+              "Museum",
+              "Art",
+              "Tourism Spots",
+              "Monument",
+              "Gallery",
+              "Library"
+            ],
+            "description": "Category of the cultural site"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the site"
+          },
+          "address": {
+            "type": "string",
+            "description": "Street address"
+          },
+          "coordinates": {
+            "type": "object",
+            "properties": {
+              "lat": {
+                "type": "number",
+                "description": "Latitude"
+              },
+              "lng": {
+                "type": "number",
+                "description": "Longitude"
+              }
+            }
+          },
+          "tags": {
+            "type": "object",
+            "description": "OpenStreetMap tags"
+          },
+          "website": {
+            "type": "string",
+            "description": "Official website URL"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Contact phone number"
+          },
+          "openingHours": {
+            "type": "string",
+            "description": "Opening hours information"
+          },
+          "accessibility": {
+            "type": "object",
+            "properties": {
+              "wheelchair": {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "limited"
+                ]
+              },
+              "parking": {
+                "type": "boolean"
+              }
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Memory": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "description": "Unique identifier"
+          },
+          "userId": {
+            "type": "string",
+            "description": "User who created the memory"
+          },
+          "siteId": {
+            "type": "string",
+            "description": "Associated cultural site ID"
+          },
+          "siteName": {
+            "type": "string",
+            "description": "Name of the cultural site"
+          },
+          "siteCategory": {
+            "type": "string",
+            "description": "Category of the cultural site"
+          },
+          "coordinates": {
+            "type": "object",
+            "properties": {
+              "lat": {
+                "type": "number"
+              },
+              "lng": {
+                "type": "number"
+              }
+            }
+          },
+          "title": {
+            "type": "string",
+            "description": "Optional title for the memory"
+          },
+          "note": {
+            "type": "string",
+            "description": "Memory description/note"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "filename": {
+                  "type": "string"
+                },
+                "originalName": {
+                  "type": "string"
+                },
+                "mimeType": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isPublic": {
+            "type": "boolean",
+            "description": "Whether the memory is publicly visible"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "UserProfile": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "bio": {
+            "type": "string"
+          },
+          "interests": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "location": {
+            "type": "object",
+            "properties": {
+              "lat": {
+                "type": "number"
+              },
+              "lng": {
+                "type": "number"
+              },
+              "address": {
+                "type": "string"
+              }
+            }
+          },
+          "preferences": {
+            "type": "object",
+            "properties": {
+              "theme": {
+                "type": "string",
+                "enum": [
+                  "light",
+                  "dark",
+                  "system"
+                ]
+              },
+              "language": {
+                "type": "string"
+              },
+              "notifications": {
+                "type": "boolean"
+              }
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Favorite": {
+        "type": "object",
+        "properties": {
+          "siteId": {
+            "type": "string"
+          },
+          "siteName": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "coordinates": {
+            "type": "object",
+            "properties": {
+              "lat": {
+                "type": "number"
+              },
+              "lng": {
+                "type": "number"
+              }
+            }
+          },
+          "addedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Activity": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "visit",
+              "favorite",
+              "memory",
+              "search"
+            ]
+          },
+          "siteId": {
+            "type": "string"
+          },
+          "siteName": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message"
+          },
+          "code": {
+            "type": "string",
+            "description": "Error code"
+          }
+        }
+      },
+      "PaginatedResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CulturalSite"
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "number"
+              },
+              "limit": {
+                "type": "number"
+              },
+              "total": {
+                "type": "number"
+              },
+              "totalPages": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Cultural Sites",
+      "description": "Operations related to cultural sites and landmarks"
+    },
+    {
+      "name": "User Management",
+      "description": "User profile, preferences, and account operations"
+    },
+    {
+      "name": "Memories",
+      "description": "User-generated memories with photos and notes"
+    },
+    {
+      "name": "Favorites",
+      "description": "User favorite sites management"
+    },
+    {
+      "name": "Activities",
+      "description": "User activity tracking and history"
+    },
+    {
+      "name": "Authentication",
+      "description": "Authentication and session management"
+    }
+  ],
+  "paths": {
+    "/api/cultural-sites/{id}": {
+      "get": {
+        "summary": "Get a cultural site by ID",
+        "tags": [
+          "Cultural Sites"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Cultural site ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cultural site details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CulturalSite"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cultural site not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cultural-sites/categories": {
+      "get": {
+        "summary": "Get all categories with site counts",
+        "tags": [
+          "Cultural Sites"
+        ],
+        "responses": {
+          "200": {
+            "description": "List of categories with counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "category": {
+                        "type": "string",
+                        "description": "Category name"
+                      },
+                      "count": {
+                        "type": "number",
+                        "description": "Number of sites in this category"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cultural-sites/nearby": {
+      "get": {
+        "summary": "Get cultural sites near a location",
+        "tags": [
+          "Cultural Sites"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "lat",
+            "required": true,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Latitude of the center point"
+          },
+          {
+            "in": "query",
+            "name": "lng",
+            "required": true,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Longitude of the center point"
+          },
+          {
+            "in": "query",
+            "name": "radius",
+            "schema": {
+              "type": "number",
+              "default": 5
+            },
+            "description": "Search radius in kilometers"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 100
+            },
+            "description": "Maximum number of results"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of nearby cultural sites with distances",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/CulturalSite"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "distance": {
+                            "type": "number",
+                            "description": "Distance in kilometers"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - missing or invalid coordinates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cultural-sites": {
+      "get": {
+        "summary": "Get cultural sites with filtering and pagination",
+        "tags": [
+          "Cultural Sites"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "description": "Page number for pagination"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 1000
+            },
+            "description": "Number of results per page"
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Theatre",
+                "Museum",
+                "Art",
+                "Tourism Spots",
+                "Monument",
+                "Gallery",
+                "Library"
+              ]
+            },
+            "description": "Filter by category"
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search term for site names and descriptions"
+          },
+          {
+            "in": "query",
+            "name": "north",
+            "schema": {
+              "type": "number"
+            },
+            "description": "Northern boundary for geographic filtering"
+          },
+          {
+            "in": "query",
+            "name": "south",
+            "schema": {
+              "type": "number"
+            },
+            "description": "Southern boundary for geographic filtering"
+          },
+          {
+            "in": "query",
+            "name": "east",
+            "schema": {
+              "type": "number"
+            },
+            "description": "Eastern boundary for geographic filtering"
+          },
+          {
+            "in": "query",
+            "name": "west",
+            "schema": {
+              "type": "number"
+            },
+            "description": "Western boundary for geographic filtering"
+          },
+          {
+            "in": "query",
+            "name": "wheelchair",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Filter for wheelchair accessible sites"
+          },
+          {
+            "in": "query",
+            "name": "parking",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Filter for sites with parking"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of cultural sites",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cultural-sites/stats": {
+      "get": {
+        "summary": "Get statistics about cultural sites",
+        "tags": [
+          "Cultural Sites"
+        ],
+        "responses": {
+          "200": {
+            "description": "Statistics about the cultural sites database",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalSites": {
+                      "type": "number",
+                      "description": "Total number of cultural sites"
+                    },
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "category": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    },
+                    "accessibleSites": {
+                      "type": "number",
+                      "description": "Number of wheelchair accessible sites"
+                    },
+                    "lastUpdated": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "When the statistics were last calculated"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memories/{id}": {
+      "get": {
+        "summary": "Get a specific memory by ID",
+        "tags": [
+          "Memories"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Memory ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Memory details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Memory"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Memory not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update a memory",
+        "tags": [
+          "Memories"
+        ],
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Memory ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "isPublic": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memory updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Memory not found or unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a memory",
+        "tags": [
+          "Memories"
+        ],
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Memory ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Memory deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Memory not found or unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memories": {
+      "get": {
+        "summary": "Get memories with various filters",
+        "tags": [
+          "Memories"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "userId",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Get memories for specific user"
+          },
+          {
+            "in": "query",
+            "name": "siteId",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Get memories for specific site"
+          },
+          {
+            "in": "query",
+            "name": "public",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Get only public memories"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of memories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Memory"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new memory",
+        "tags": [
+          "Memories"
+        ],
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "siteId",
+                  "siteName",
+                  "siteCategory",
+                  "lat",
+                  "lng",
+                  "note",
+                  "images"
+                ],
+                "properties": {
+                  "siteId": {
+                    "type": "string",
+                    "description": "ID of the cultural site"
+                  },
+                  "siteName": {
+                    "type": "string",
+                    "description": "Name of the cultural site"
+                  },
+                  "siteCategory": {
+                    "type": "string",
+                    "description": "Category of the cultural site"
+                  },
+                  "lat": {
+                    "type": "number",
+                    "description": "Latitude coordinate"
+                  },
+                  "lng": {
+                    "type": "number",
+                    "description": "Longitude coordinate"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Optional title for the memory"
+                  },
+                  "note": {
+                    "type": "string",
+                    "description": "Memory description/note"
+                  },
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    },
+                    "description": "Image files (max 2MB each, 6MB total)"
+                  },
+                  "tags": {
+                    "type": "string",
+                    "description": "Comma-separated tags"
+                  },
+                  "isPublic": {
+                    "type": "boolean",
+                    "description": "Whether memory is publicly visible"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memory created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "memoryId": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request entity too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/activity": {
+      "get": {
+        "summary": "Get user's activity history",
+        "tags": [
+          "Activities"
+        ],
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of user activities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Activity"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add a new activity",
+        "tags": [
+          "Activities"
+        ],
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "type",
+                  "siteId",
+                  "siteName",
+                  "category"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "visit",
+                      "favorite",
+                      "memory",
+                      "search"
+                    ],
+                    "description": "Type of activity"
+                  },
+                  "siteId": {
+                    "type": "string",
+                    "description": "Cultural site ID"
+                  },
+                  "siteName": {
+                    "type": "string",
+                    "description": "Name of the site"
+                  },
+                  "category": {
+                    "type": "string",
+                    "description": "Site category"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Activity added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "activityId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/favorites": {
+      "get": {
+        "summary": "Get user's favorite sites",
+        "tags": [
+          "Favorites"
+        ],
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "groupBy",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "category"
+              ]
+            },
+            "description": "Group favorites by category"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of user's favorites",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Favorite"
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/Favorite"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add a site to favorites",
+        "tags": [
+          "Favorites"
+        ],
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "siteId",
+                  "siteName",
+                  "category"
+                ],
+                "properties": {
+                  "siteId": {
+                    "type": "string",
+                    "description": "Cultural site ID"
+                  },
+                  "siteName": {
+                    "type": "string",
+                    "description": "Name of the site"
+                  },
+                  "category": {
+                    "type": "string",
+                    "description": "Site category"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Site description"
+                  },
+                  "coordinates": {
+                    "type": "object",
+                    "properties": {
+                      "lat": {
+                        "type": "number"
+                      },
+                      "lng": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Site added to favorites",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove a site from favorites",
+        "tags": [
+          "Favorites"
+        ],
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "siteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Site ID to remove from favorites"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Site removed from favorites",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Site ID is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/location": {
+      "get": {
+        "summary": "Get user's saved location",
+        "tags": [
+          "User Management"
+        ],
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User's location data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "location": {
+                      "type": "object",
+                      "properties": {
+                        "lat": {
+                          "type": "number"
+                        },
+                        "lng": {
+                          "type": "number"
+                        },
+                        "accuracy": {
+                          "type": "number"
+                        },
+                        "address": {
+                          "type": "string"
+                        },
+                        "lastUpdated": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Update user's location",
+        "tags": [
+          "User Management"
+        ],
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "lat",
+                  "lng"
+                ],
+                "properties": {
+                  "lat": {
+                    "type": "number",
+                    "description": "Latitude"
+                  },
+                  "lng": {
+                    "type": "number",
+                    "description": "Longitude"
+                  },
+                  "accuracy": {
+                    "type": "number",
+                    "description": "Location accuracy in meters"
+                  },
+                  "address": {
+                    "type": "string",
+                    "description": "Human-readable address"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Location updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "location": {
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing required coordinates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/profile": {
+      "get": {
+        "summary": "Get user profile",
+        "tags": [
+          "User Management"
+        ],
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User profile data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create or update user profile",
+        "tags": [
+          "User Management"
+        ],
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "bio": {
+                    "type": "string"
+                  },
+                  "interests": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "preferences": {
+                    "type": "object",
+                    "properties": {
+                      "theme": {
+                        "type": "string",
+                        "enum": [
+                          "light",
+                          "dark",
+                          "system"
+                        ]
+                      },
+                      "language": {
+                        "type": "string"
+                      },
+                      "notifications": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/stats": {
+      "get": {
+        "summary": "Get user statistics",
+        "tags": [
+          "User Management"
+        ],
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalFavorites": {
+                      "type": "number",
+                      "description": "Total number of favorite sites"
+                    },
+                    "totalMemories": {
+                      "type": "number",
+                      "description": "Total number of memories created"
+                    },
+                    "totalActivities": {
+                      "type": "number",
+                      "description": "Total number of activities"
+                    },
+                    "favoriteCategories": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "number"
+                      },
+                      "description": "Count of favorites by category"
+                    },
+                    "recentActivity": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Activity"
+                      },
+                      "description": "Recent user activities"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
