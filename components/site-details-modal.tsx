@@ -33,6 +33,7 @@ import {
   Loader2,
   Sparkles,
   Camera,
+  Navigation,
 } from "lucide-react"
 import type { CulturalSite } from "@/lib/cultural-sites-service"
 // import { useSession } from "next-auth/react"
@@ -116,7 +117,6 @@ const labelMapping: Record<string, string> = {
   heritage: "Heritage Status",
 }
 
-
 // Icons for different field types
 const getFieldIcon = (key: string) => {
   if (key.includes("phone")) return <Phone className="h-4 w-4" />
@@ -196,6 +196,20 @@ const formatUrl = (url: string): string => {
   }
 }
 
+// Generate Google Maps directions URL
+const getDirectionsUrl = (site: CulturalSite): string => {
+  const lat = site.coordinates?.lat
+  const lng = site.coordinates?.lng
+
+  if (!lat || !lng) {
+    // Fallback to search by name and address
+    const query = encodeURIComponent(`${site.name} ${site.address || ""}`.trim())
+    return `https://www.google.com/maps/search/?api=1&query=${query}`
+  }
+
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`
+}
+
 export function SiteDetailsModal({ site, open, onOpenChange }: SiteDetailsModalProps) {
   const [showRawData, setShowRawData] = useState(false)
   const [activeTab, setActiveTab] = useState("details")
@@ -205,6 +219,13 @@ export function SiteDetailsModal({ site, open, onOpenChange }: SiteDetailsModalP
   const handleMemoryCreated = () => {
     // Switch to memories tab to show the new memory
     setActiveTab("memories")
+  }
+
+  const handleGetDirections = () => {
+    if (site) {
+      const directionsUrl = getDirectionsUrl(site)
+      window.open(directionsUrl, "_blank", "noopener,noreferrer")
+    }
   }
 
   if (!site) return null
@@ -330,13 +351,7 @@ export function SiteDetailsModal({ site, open, onOpenChange }: SiteDetailsModalP
           <div className="text-sm font-medium text-foreground">{label}</div>
           {isLink ? (
             <a
-              href={
-                typeof value === "string"
-                  ? value.startsWith("http")
-                    ? value
-                    : `https://${value}`
-                  : undefined
-        }
+              href={typeof value === "string" ? (value.startsWith("http") ? value : `https://${value}`) : undefined}
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-primary hover:underline flex items-center gap-1"
@@ -363,8 +378,11 @@ export function SiteDetailsModal({ site, open, onOpenChange }: SiteDetailsModalP
           {icon}
           <h3 className="font-semibold text-lg">{title}</h3>
         </div>
-        <div className="space-y-1">{Object.entries(fields as Record<string, string | number | boolean | null | undefined>).map(([key, value]) =>
-        renderField(key, value))}</div>
+        <div className="space-y-1">
+          {Object.entries(fields as Record<string, string | number | boolean | null | undefined>).map(([key, value]) =>
+            renderField(key, value),
+          )}
+        </div>
       </div>
     )
   }
@@ -378,23 +396,34 @@ export function SiteDetailsModal({ site, open, onOpenChange }: SiteDetailsModalP
               <div className="space-y-2">
                 <div className="flex items-start justify-between">
                   <DialogTitle className="text-2xl flex-1">{site.name}</DialogTitle>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => toggleFavorite(site)}
-                    disabled={isFavoriting(site._id?.toString())}
-                    className={`ml-4 ${
-                      isFavorited(site._id?.toString())
-                        ? "text-rose-500 hover:text-rose-600"
-                        : "text-muted-foreground hover:text-rose-500"
-                    }`}
-                  >
-                    {isFavoriting(site._id?.toString()) ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <Heart className={`h-5 w-5 ${isFavorited(site._id?.toString()) ? "fill-current" : ""}`} />
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-2 ml-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGetDirections}
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+                    >
+                      <Navigation className="h-4 w-4 mr-1" />
+                      Directions
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => toggleFavorite(site)}
+                      disabled={isFavoriting(site._id?.toString())}
+                      className={`${
+                        isFavorited(site._id?.toString())
+                          ? "text-rose-500 hover:text-rose-600"
+                          : "text-muted-foreground hover:text-rose-500"
+                      }`}
+                    >
+                      {isFavoriting(site._id?.toString()) ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Heart className={`h-5 w-5 ${isFavorited(site._id?.toString()) ? "fill-current" : ""}`} />
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge

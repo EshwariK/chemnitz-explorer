@@ -1,7 +1,7 @@
 import { MongoClient } from 'mongodb';
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017';
-const dbName = 'Chemnitz';
+const dbName = 'whereWeAre';
 const collectionName = 'CulturalSites';
 
 export async function upsertSites(sites) {
