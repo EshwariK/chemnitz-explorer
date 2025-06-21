@@ -70,7 +70,7 @@ export interface DashboardData {
 export class UserService {
   private static async getDb() {
     const client = await clientPromise
-    return client.db()
+    return client.db("whereWeAre")
   }
 
   // User Profile Management

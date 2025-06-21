@@ -16,7 +16,9 @@ if (!process.env.MONGODB_URI) {
 }
 
 export const authOptions = {
-  adapter: MongoDBAdapter(clientPromise),
+  adapter: MongoDBAdapter(clientPromise, {
+    databaseName: "whereWeAre",
+  }),
   providers: [
     ...(process.env.GITHUB_ID && process.env.GITHUB_SECRET
       ? [

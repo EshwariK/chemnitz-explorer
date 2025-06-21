@@ -48,7 +48,7 @@ export interface PaginationOptions {
 export class CulturalSitesService {
   private static async getDb() {
     const client = await clientPromise
-    return client.db("Chemnitz")
+    return client.db("whereWeAre")
   }
 
   // Get all cultural sites with pagination and filtering
@@ -207,6 +207,55 @@ export class CulturalSitesService {
       categories,
       accessibleSites,
       lastUpdated: new Date(),
+    }
+  }
+
+  // Get likes count for a cultural site
+  static async getSiteLikesCount(siteId: string): Promise<number> {
+    const db = await this.getDb()
+
+    try {
+      const count = await db.collection("favorites").countDocuments({
+        siteId: siteId,
+      })
+      return count
+    } catch (error) {
+      console.error("Error fetching likes count:", error)
+      return 0
+    }
+  }
+
+  // Get multiple sites with their likes counts
+  static async getSitesWithLikesCount(siteIds: string[]): Promise<Record<string, number>> {
+    const db = await this.getDb()
+
+    try {
+      const likesData = await db
+        .collection("favorites")
+        .aggregate([
+          {
+            $match: {
+              siteId: { $in: siteIds },
+            },
+          },
+          {
+            $group: {
+              _id: "$siteId",
+              count: { $sum: 1 },
+            },
+          },
+        ])
+        .toArray()
+
+      const likesMap: Record<string, number> = {}
+      likesData.forEach((item) => {
+        likesMap[item._id] = item.count
+      })
+
+      return likesMap
+    } catch (error) {
+      console.error("Error fetching multiple likes counts:", error)
+      return {}
     }
   }
 

@@ -38,7 +38,7 @@ export interface MemoryStats {
 export class MemoryService {
   private static async getDb() {
     const client = await clientPromise
-    return client.db()
+    return client.db("whereWeAre")
   }
 
   // Create a new memory
