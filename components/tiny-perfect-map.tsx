@@ -21,12 +21,14 @@ import {
   AlertTriangle,
   Loader2,
   Info,
+  Heart,
 } from "lucide-react"
 import type { UserMemory } from "@/lib/memory-service"
 import type { CulturalSite } from "@/lib/cultural-sites-service"
 import Image from "next/image"
 import { toast } from "sonner"
 import { SiteDetailsModal } from "./site-details-modal"
+import type { UserFavorite } from "@/lib/user-service"
 
 // Fix for default markers
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl
@@ -74,8 +76,37 @@ const groupMemoriesByLocation = (memories: UserMemory[]) => {
   return groups
 }
 
-// Create magical memory marker with count
-const createMemoryIcon = (count: number, isPersonal = false) => {
+// Check if a favorite site has memories at the same location
+const filterFavoritesWithoutMemories = (favorites: UserFavorite[], memories: UserMemory[]) => {
+  const threshold = 0.0005 // Same threshold as memory grouping
+
+  return favorites.filter((favorite) => {
+    // Check if any memory exists at this favorite's location
+    const hasMemoryAtLocation = memories.some((memory) => {
+      const distance = Math.sqrt(
+        Math.pow(favorite.coordinates.lat - memory.coordinates.lat, 2) +
+          Math.pow(favorite.coordinates.lng - memory.coordinates.lng, 2),
+      )
+      return distance <= threshold
+    })
+    return !hasMemoryAtLocation
+  })
+}
+
+// Check if a memory location is also favorited
+const isMemoryLocationFavorited = (memory: UserMemory, favorites: UserFavorite[]) => {
+  const threshold = 0.0005
+  return favorites.some((favorite) => {
+    const distance = Math.sqrt(
+      Math.pow(favorite.coordinates.lat - memory.coordinates.lat, 2) +
+        Math.pow(favorite.coordinates.lng - memory.coordinates.lng, 2),
+    )
+    return distance <= threshold
+  })
+}
+
+// Create magical memory marker with count and favorite indicator
+const createMemoryIcon = (count: number, isPersonal = false, isFavorited = false) => {
   const color = isPersonal ? "#ec4899" : "#10b981" // Pink for personal, emerald for public
   const size = count > 1 ? 35 : 30
 
@@ -90,6 +121,7 @@ const createMemoryIcon = (count: number, isPersonal = false) => {
         align-items: center;
         justify-content: center;
         animation: gentlePulse 3s ease-in-out infinite;
+        position: relative;
       ">
         <div style="
           background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%);
@@ -125,6 +157,25 @@ const createMemoryIcon = (count: number, isPersonal = false) => {
             animation: shimmer 4s ease-in-out infinite;
           "></div>
         </div>
+        ${
+          isFavorited
+            ? `<div style="
+          position: absolute;
+          top: -2px;
+          right: -2px;
+          width: 16px;
+          height: 16px;
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          border-radius: 50%;
+          border: 2px solid white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 8px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        ">❤️</div>`
+            : ""
+        }
       </div>
       <style>
         @keyframes gentlePulse {
@@ -143,8 +194,78 @@ const createMemoryIcon = (count: number, isPersonal = false) => {
   })
 }
 
+// Create favorite site marker
+const createFavoriteIcon = () => {
+  const color = "#f59e0b" // Amber color for favorites
+  const size = 30
+
+  return L.divIcon({
+    html: `
+      <div style="
+        background: radial-gradient(circle, ${color}40 0%, ${color}20 50%, transparent 70%);
+        width: ${size * 2}px;
+        height: ${size * 2}px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: gentlePulse 3s ease-in-out infinite;
+      ">
+        <div style="
+          background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%);
+          width: ${size}px;
+          height: ${size}px;
+          border-radius: 50%;
+          border: 3px solid white;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 0 20px ${color}40;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          overflow: hidden;
+        ">
+          <div style="
+            color: white; 
+            font-size: 14px; 
+            font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 2px;
+          ">
+            ❤️
+          </div>
+          <div style="
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.3) 50%, transparent 70%);
+            animation: shimmer 4s ease-in-out infinite;
+          "></div>
+        </div>
+      </div>
+      <style>
+        @keyframes gentlePulse {
+          0%, 100% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.1); opacity: 1; }
+        }
+        @keyframes shimmer {
+          0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+          100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+      </style>
+    `,
+    className: "favorite-marker",
+    iconSize: [size * 2, size * 2],
+    iconAnchor: [size, size],
+  })
+}
+
 interface TinyPerfectMapProps {
   memories: UserMemory[]
+  favorites?: UserFavorite[]
   height?: string
   showUserLocation?: boolean
   personalMap?: boolean
@@ -154,6 +275,7 @@ interface TinyPerfectMapProps {
 
 export function TinyPerfectMap({
   memories,
+  favorites = [],
   height = "500px",
   personalMap = false,
   onMemoryDeleted,
@@ -179,11 +301,11 @@ export function TinyPerfectMap({
     return `/api/memories/${memoryId}/image/${imageId}`
   }
 
-  const handleShowSiteDetails = async (memory: UserMemory) => {
-    if (!memory.siteId) return
+  const handleShowSiteDetails = async (siteId: string) => {
+    if (!siteId) return
 
     try {
-      const response = await fetch(`/api/cultural-sites/${memory.siteId}`)
+      const response = await fetch(`/api/cultural-sites/${siteId}`)
       if (response.ok) {
         const siteData = await response.json()
         setSelectedSite(siteData)
@@ -212,6 +334,9 @@ export function TinyPerfectMap({
   // Group memories by location
   const memoryGroups = groupMemoriesByLocation(memories)
 
+   // Filter favorites to exclude those that have memories at the same location
+  const favoritesWithoutMemories = personalMap ? filterFavoritesWithoutMemories(favorites, memories) : []
+
   // Default center (Chemnitz)
   const defaultCenter: [number, number] = [50.8278, 12.9214]
   const center =
@@ -234,41 +359,65 @@ export function TinyPerfectMap({
           />
 
           {/* Memory group markers */}
-          {memoryGroups.map((group, groupIndex) => (
-            <Marker
-              key={groupIndex}
-              position={[group.center.lat, group.center.lng]}
-              icon={createMemoryIcon(group.memories.length, personalMap)}
-            >
-              <Popup className="memory-popup" maxWidth={400}>
-                <div className="p-2 min-w-[320px] max-w-[380px]">
-                  {group.memories.length === 1 ? (
-                    // Single memory popup
-                    <SingleMemoryPopup
-                      memory={group.memories[0]}
-                      onViewDetails={() => setSelectedMemory(group.memories[0])}
-                      imageErrors={imageErrors}
-                      onImageError={handleImageError}
-                      getImageUrl={getImageUrl}
-                    />
-                  ) : (
-                    // Multiple memories popup
-                    <MultipleMemoriesPopup
-                      memories={group.memories}
-                      onViewAll={() => setSelectedMemories(group.memories)}
-                      onViewSingle={(memory) => setSelectedMemory(memory)}
-                      imageErrors={imageErrors}
-                      onImageError={handleImageError}
-                      getImageUrl={getImageUrl}
-                    />
-                  )}
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+          {memoryGroups.map((group, groupIndex) => {
+            const isFavorited =
+              personalMap && group.memories.some((memory) => isMemoryLocationFavorited(memory, favorites))
+
+            return (
+              <Marker
+                key={groupIndex}
+                position={[group.center.lat, group.center.lng]}
+                icon={createMemoryIcon(group.memories.length, personalMap, isFavorited)}
+              >
+                <Popup className="memory-popup" maxWidth={400}>
+                  <div className="p-2 min-w-[320px] max-w-[380px]">
+                    {group.memories.length === 1 ? (
+                      // Single memory popup
+                      <SingleMemoryPopup
+                        memory={group.memories[0]}
+                        onViewDetails={() => setSelectedMemory(group.memories[0])}
+                        imageErrors={imageErrors}
+                        onImageError={handleImageError}
+                        getImageUrl={getImageUrl}
+                        isFavorited={isFavorited}
+                      />
+                    ) : (
+                      // Multiple memories popup
+                      <MultipleMemoriesPopup
+                        memories={group.memories}
+                        onViewAll={() => setSelectedMemories(group.memories)}
+                        onViewSingle={(memory) => setSelectedMemory(memory)}
+                        imageErrors={imageErrors}
+                        onImageError={handleImageError}
+                        getImageUrl={getImageUrl}
+                        isFavorited={isFavorited}
+                      />
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            )
+          })}
+
+          {/* Favorite site markers (only those without memories) */}
+          {personalMap &&
+            favoritesWithoutMemories.map((favorite) => (
+              <Marker
+                key={`favorite-${favorite.siteId}`}
+                position={[favorite.coordinates.lat, favorite.coordinates.lng]}
+                icon={createFavoriteIcon()}
+              >
+                <Popup className="favorite-popup" maxWidth={400}>
+                  <div className="p-2 min-w-[320px] max-w-[380px]">
+                    <FavoriteSitePopup favorite={favorite} onShowSiteDetails={() => handleShowSiteDetails(favorite.siteId)} />
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+
 
           {/* Map bounds adjuster */}
-          <MapBoundsAdjuster memories={memories} />
+          <MapBoundsAdjuster memories={memories} favorites={personalMap ? favorites : []} />
         </MapContainer>
 
         {/* Floating stats */}
@@ -278,7 +427,14 @@ export function TinyPerfectMap({
               <div className="flex items-center gap-2 text-sm">
                 <Sparkles className="h-4 w-4 text-emerald-500" />
                 <span className="font-medium">{memories.length}</span>
-                <span className="text-muted-foreground">{personalMap ? "Your Memories" : "Perfect Moments"}</span>
+                <span className="text-muted-foreground">{personalMap ? "Memories" : "Perfect Moments"}</span>
+                {personalMap && favorites.length > 0 && (
+                  <>
+                    <span className="text-muted-foreground">•</span>
+                    <span className="font-medium text-amber-600">{favoritesWithoutMemories.length}</span>
+                    <span className="text-muted-foreground">Favorites</span>
+                  </>
+                )}
                 {memoryGroups.length !== memories.length && (
                   <>
                     <span className="text-muted-foreground">•</span>
@@ -290,6 +446,42 @@ export function TinyPerfectMap({
             </CardContent>
           </Card>
         </div>
+        
+        {personalMap && (memories.length > 0 || favorites.length > 0) && (
+          <div className="absolute bottom-4 left-4 z-[1000]">
+            <Card className="bg-white/90 dark:bg-black/80 backdrop-blur-sm border-emerald-200">
+              <CardContent className="p-3">
+                <div className="space-y-2 text-xs">
+                  <div className="font-medium text-muted-foreground mb-2">Map Legend</div>
+                  {memories.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-gradient-to-br from-pink-500 to-pink-600 rounded-full flex items-center justify-center text-white text-xs">
+                        ✨
+                      </div>
+                      <span className="text-muted-foreground">Your Memories</span>
+                    </div>
+                  )}
+                  {favoritesWithoutMemories.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs">
+                        ❤️
+                      </div>
+                      <span className="text-muted-foreground">Favorite Sites</span>
+                    </div>
+                  )}
+                  {memories.some((memory) => isMemoryLocationFavorited(memory, favorites)) && (
+                    <div className="flex items-center gap-2">
+                      <div className="relative w-4 h-4 bg-gradient-to-br from-pink-500 to-pink-600 rounded-full flex items-center justify-center text-white text-xs">
+                        ✨<div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full text-xs">❤️</div>
+                      </div>
+                      <span className="text-muted-foreground">Memory + Favorite</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
 
       {/* Single Memory Detail Modal */}
@@ -302,7 +494,7 @@ export function TinyPerfectMap({
           onImageError={handleImageError}
           currentUserId={currentUserId}
           onMemoryDeleted={onMemoryDeleted}
-          onShowSiteDetails={() => handleShowSiteDetails(selectedMemory)}
+          onShowSiteDetails={() => handleShowSiteDetails(selectedMemory.siteId)}
         />
       )}
 
@@ -335,12 +527,14 @@ function SingleMemoryPopup({
   imageErrors,
   onImageError,
   getImageUrl,
+  isFavorited = false,
 }: {
   memory: UserMemory
   onViewDetails: () => void
   imageErrors: Set<string>
   onImageError: (imageId: string) => void
   getImageUrl: (memoryId: string, imageId: string) => string
+  isFavorited?: boolean
 }) {
   return (
     <div className="space-y-3">
@@ -366,9 +560,24 @@ function SingleMemoryPopup({
           </div>
         )}
         <div className="flex-1 min-w-0">
-          {memory.title && (
-            <h4 className="font-semibold text-emerald-800 dark:text-emerald-200 mb-1 line-clamp-2">{memory.title}</h4>
-          )}
+          <div className="flex items-start gap-2">
+            {memory.title && (
+              <h4 className="font-semibold text-emerald-800 dark:text-emerald-200 mb-1 line-clamp-2 flex-1">
+                {memory.title}
+              </h4>
+            )}
+            {isFavorited && (
+              <div className="flex-shrink-0">
+                <Badge
+                  variant="outline"
+                  className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-300"
+                >
+                  <Heart className="h-3 w-3 mr-1 fill-current" />
+                  Favorite
+                </Badge>
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
             <MapPin className="h-3 w-3" />
             <span className="truncate">{memory.siteName}</span>
@@ -430,6 +639,7 @@ function MultipleMemoriesPopup({
   imageErrors,
   onImageError,
   getImageUrl,
+  isFavorited = false,
 }: {
   memories: UserMemory[]
   onViewAll: () => void
@@ -437,6 +647,7 @@ function MultipleMemoriesPopup({
   imageErrors: Set<string>
   onImageError: (imageId: string) => void
   getImageUrl: (memoryId: string, imageId: string) => string
+  isFavorited?: boolean
 }) {
   const siteName = memories[0]?.siteName || "This location"
 
@@ -445,10 +656,21 @@ function MultipleMemoriesPopup({
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <Users className="h-5 w-5 text-emerald-600" />
-        <div>
-          <h4 className="font-semibold text-emerald-800 dark:text-emerald-200">
-            {memories.length} Memories at {siteName}
-          </h4>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h4 className="font-semibold text-emerald-800 dark:text-emerald-200">
+              {memories.length} Memories at {siteName}
+            </h4>
+            {isFavorited && (
+              <Badge
+                variant="outline"
+                className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-300"
+              >
+                <Heart className="h-3 w-3 mr-1 fill-current" />
+                Favorite
+              </Badge>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">Multiple visitors shared their moments here</p>
         </div>
       </div>
@@ -622,15 +844,27 @@ function MultipleMemoriesModal({
 }
 
 // Component to adjust map bounds
-function MapBoundsAdjuster({ memories }: { memories: UserMemory[] }) {
+function MapBoundsAdjuster({ memories, favorites = [] }: { memories: UserMemory[]; favorites?: UserFavorite[] }) {
   const map = useMap()
 
   useEffect(() => {
-    if (memories.length > 0) {
-      const bounds = L.latLngBounds(memories.map((memory) => [memory.coordinates.lat, memory.coordinates.lng]))
+    const allPoints: [number, number][] = []
+
+    // Add memory coordinates
+    memories.forEach((memory) => {
+      allPoints.push([memory.coordinates.lat, memory.coordinates.lng])
+    })
+
+    // Add favorite coordinates
+    favorites.forEach((favorite) => {
+      allPoints.push([favorite.coordinates.lat, favorite.coordinates.lng])
+    })
+
+    if (allPoints.length > 0) {
+      const bounds = L.latLngBounds(allPoints)
       map.fitBounds(bounds, { padding: [20, 20] })
     }
-  }, [memories, map])
+  }, [memories, favorites, map])
 
   return null
 }
@@ -645,6 +879,7 @@ function MemoryDetailModal({
   currentUserId,
   onMemoryDeleted,
   onShowSiteDetails,
+  isFavorited = false,
 }: {
   memory: UserMemory
   open: boolean
@@ -654,6 +889,7 @@ function MemoryDetailModal({
   currentUserId?: string
   onMemoryDeleted?: () => void
   onShowSiteDetails?: () => void
+  isFavorited?: boolean
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -706,9 +942,22 @@ function MemoryDetailModal({
           {/* Header */}
           <div className="p-6 pb-4 border-b">
             <div className="space-y-2">
-              {memory.title && (
-                <h3 className="text-xl font-semibold text-emerald-800 dark:text-emerald-200">{memory.title}</h3>
-              )}
+              <div className="flex items-start gap-2">
+                {memory.title && (
+                  <h3 className="text-xl font-semibold text-emerald-800 dark:text-emerald-200 flex-1">
+                    {memory.title}
+                  </h3>
+                )}
+                {isFavorited && (
+                  <Badge
+                    variant="outline"
+                    className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-300"
+                  >
+                    <Heart className="h-4 w-4 mr-1 fill-current" />
+                    Also Favorited
+                  </Badge>
+                )}
+              </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
@@ -897,6 +1146,67 @@ function MemoryDetailModal({
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+// Favorite site popup component
+function FavoriteSitePopup({
+  favorite,
+  onShowSiteDetails,
+}: {
+  favorite: UserFavorite
+  onShowSiteDetails: () => void
+}) {
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <div className="w-16 h-16 flex-shrink-0 bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border-2 border-amber-200 flex items-center justify-center">
+          <Heart className="h-8 w-8 text-amber-600 fill-current" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-1 line-clamp-2">{favorite.siteName}</h4>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+            <MapPin className="h-3 w-3" />
+            <span className="truncate">{favorite.category}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Calendar className="h-3 w-3" />
+            Added {new Date(favorite.dateAdded).toLocaleDateString()}
+          </div>
+        </div>
+      </div>
+
+      {/* Description */}
+      <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 leading-relaxed">{favorite.description}</p>
+
+      {/* Category Badge */}
+      <div className="flex flex-wrap gap-1">
+        <Badge
+          variant="outline"
+          className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-300"
+        >
+          {favorite.category}
+        </Badge>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Heart className="h-3 w-3 text-amber-500 fill-current" />
+          <span>Favorite Site</span>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onShowSiteDetails}
+          className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20 border-amber-200"
+        >
+          <Eye className="h-3 w-3 mr-1" />
+          View Details
+        </Button>
+      </div>
+    </div>
   )
 }
 

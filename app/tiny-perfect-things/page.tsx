@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Sparkles, Map, Heart, Share2, MapPin } from "lucide-react"
 import { useSession } from "next-auth/react"
 import type { UserMemory } from "@/lib/memory-service"
+import type { UserFavorite } from "@/lib/user-service"
 
 const TinyPerfectMap = dynamic(() => import("@/components/tiny-perfect-map"), { ssr: false })
 
@@ -16,14 +17,16 @@ export default function TinyPerfectThingsPage() {
   const { data: session } = useSession()
   const [allMemories, setAllMemories] = useState<UserMemory[]>([])
   const [userMemories, setUserMemories] = useState<UserMemory[]>([])
+  const [userFavorites, setUserFavorites] = useState<UserFavorite[]>([])
   const [activeTab, setActiveTab] = useState("explore")
 
   useEffect(() => {
     const fetchMemories = async () => {
       try {
-        const [publicResponse, userResponse] = await Promise.all([
+        const [publicResponse, userResponse, favoritesResponse] = await Promise.all([
           fetch("/api/memories?public=true"),
           session ? fetch(`/api/memories?userId=${session.user.id}`) : Promise.resolve(null),
+          session ? fetch(`/api/user/favorites`) : Promise.resolve(null),
         ])
 
         if (publicResponse.ok) {
@@ -35,6 +38,11 @@ export default function TinyPerfectThingsPage() {
           const userData = await userResponse.json()
           setUserMemories(userData)
         }
+
+        if (favoritesResponse && typeof favoritesResponse.json === "function" && favoritesResponse.ok) {
+          const favoritesData = await favoritesResponse.json()
+          setUserFavorites(favoritesData)
+        }
       } catch (error) {
         console.error("Error fetching memories:", error)
       }
@@ -45,9 +53,10 @@ export default function TinyPerfectThingsPage() {
 
   const refreshMemories = async () => {
     try {
-      const [publicResponse, userResponse] = await Promise.all([
+      const [publicResponse, userResponse, favoritesResponse] = await Promise.all([
         fetch("/api/memories?public=true"),
         session ? fetch(`/api/memories?userId=${session.user.id}`) : Promise.resolve(null),
+        session ? fetch(`/api/user/favorites`) : Promise.resolve(null),
       ])
 
       if (publicResponse.ok) {
@@ -58,6 +67,11 @@ export default function TinyPerfectThingsPage() {
       if (userResponse && typeof userResponse.json === "function" && userResponse.ok) {
         const userData = await userResponse.json()
         setUserMemories(userData)
+      }
+
+      if (favoritesResponse && typeof favoritesResponse.json === "function" && favoritesResponse.ok) {
+        const favoritesData = await favoritesResponse.json()
+        setUserFavorites(favoritesData)
       }
     } catch (error) {
       console.error("Error refreshing memories:", error)
@@ -166,6 +180,7 @@ export default function TinyPerfectThingsPage() {
                 <CardContent className="p-0">
                   <TinyPerfectMap
                     memories={userMemories}
+                    favorites={userFavorites}
                     height="600px"
                     showUserLocation={true}
                     personalMap={true}
@@ -190,7 +205,7 @@ export default function TinyPerfectThingsPage() {
 
         {/* Stats Section */}
         {allMemories.length > 0 && (
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card className="text-center border-emerald-200 bg-gradient-to-br from-emerald-50/50 to-green-50/30 dark:from-emerald-950/20 dark:to-green-950/10">
               <CardContent className="p-6">
                 <div className="text-3xl font-bold text-emerald-600 mb-2">{allMemories.length}</div>
@@ -215,6 +230,15 @@ export default function TinyPerfectThingsPage() {
                 <div className="text-sm text-muted-foreground">Beautiful Photos</div>
               </CardContent>
             </Card>
+
+            {session && (
+              <Card className="text-center border-rose-200 bg-gradient-to-br from-rose-50/50 to-pink-50/30 dark:from-rose-950/20 dark:to-pink-950/10">
+                <CardContent className="p-6">
+                  <div className="text-3xl font-bold text-rose-600 mb-2">{userFavorites.length}</div>
+                  <div className="text-sm text-muted-foreground">Your Favorites</div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </div>
