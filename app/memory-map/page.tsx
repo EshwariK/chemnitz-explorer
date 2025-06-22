@@ -11,9 +11,9 @@ import { useSession } from "next-auth/react"
 import type { UserMemory } from "@/lib/memory-service"
 import type { UserFavorite } from "@/lib/user-service"
 
-const TinyPerfectMap = dynamic(() => import("@/components/tiny-perfect-map"), { ssr: false })
+const TinyPerfectMap = dynamic(() => import("@/components/memory-map"), { ssr: false })
 
-export default function TinyPerfectThingsPage() {
+export default function MemoryMapPage() {
   const { data: session } = useSession()
   const [allMemories, setAllMemories] = useState<UserMemory[]>([])
   const [userMemories, setUserMemories] = useState<UserMemory[]>([])

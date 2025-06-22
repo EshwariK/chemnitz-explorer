@@ -7,7 +7,7 @@ import { signOut, useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Menu, User, LogOut, Settings, Heart } from "lucide-react"
+import { Menu, User, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   DropdownMenu,
@@ -22,9 +22,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const navigation = [
   { name: "Home", href: "/" },
-  { name: "Map", href: "/map" },
+  // { name: "Map", href: "/map" },
   // { name: "Favorites", href: "/favorites" },
-  { name: "Tiny Perfect Things", href: "/tiny-perfect-things" },
+  { name: "Memory Map", href: "/memory-map" },
   // { name: "Dashboard", href: "/dashboard" },
   { name: "API Docs", href: "/docs" },
 ]
@@ -93,18 +93,6 @@ export function Header() {
                     <Link href="/profile">
                       <User className="mr-2 h-4 w-4" />
                       <span>Profile</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard">
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Dashboard</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/favorites">
-                      <Heart className="mr-2 h-4 w-4" />
-                      <span>Favorites</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
