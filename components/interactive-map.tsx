@@ -275,7 +275,7 @@ export function InteractiveMap({
       : defaultCenter
 
   const mapContainerClass = isFullscreen
-    ? "fixed inset-0 z-[9999] bg-white dark:bg-gray-900"
+    ? "fixed inset-0 z-[8000] bg-white dark:bg-gray-900"
     : `rounded-lg overflow-hidden z-40 border relative ${className}`
 
   const mapHeight = isFullscreen ? "100vh" : height
@@ -477,7 +477,12 @@ export function InteractiveMap({
       </div>
 
       {/* Site Details Modal */}
-      <SiteDetailsModal site={selectedSite} open={detailsModalOpen} onOpenChange={setDetailsModalOpen} />
+      <SiteDetailsModal
+        site={selectedSite}
+        open={detailsModalOpen}
+        onOpenChange={setDetailsModalOpen}
+        className={isFullscreen ? "z-[9000]" : ""}
+      />
     </>
   )
 }

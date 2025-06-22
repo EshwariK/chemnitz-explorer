@@ -31,6 +31,7 @@ import Image from "next/image"
 import { toast } from "sonner"
 import { SiteDetailsModal } from "./site-details-modal"
 import type { UserFavorite } from "@/lib/user-service"
+import ReactDOM from "react-dom"
 
 // Fix for default markers
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl
@@ -392,182 +393,267 @@ export function TinyPerfectMap({
   const center = allPoints.length > 0 ? (allPoints[0] as [number, number]) : defaultCenter
 
   const mapContainerClass = isFullscreen
-    ? "fixed inset-0 z-[9999] bg-white dark:bg-gray-900"
+    ? "fixed inset-0 z-[8000] bg-white dark:bg-gray-900"
     : "rounded-lg overflow-hidden z-40 border border-emerald-200 relative"
 
   const mapHeight = isFullscreen ? "100vh" : height
 
   return (
     <div className="relative">
-      <div className={mapContainerClass} style={{ height: mapHeight }}>
-        <MapContainer
-          center={center}
-          zoom={memories.length > 0 ? 12 : 11}
-          style={{ height: "100%", width: "100%" }}
-          zoomControl={true}
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-
-          {/* Memory group markers */}
-          {memoryGroups.map((group, groupIndex) => {
-            const isFavorited =
-              personalMap && group.memories.some((memory) => isMemoryLocationFavorited(memory, favorites))
-
-            return (
-              <Marker
-                key={groupIndex}
-                position={[group.center.lat, group.center.lng]}
-                icon={createMemoryIcon(group.memories.length, personalMap, isFavorited)}
+      {isFullscreen ? (
+        // Render fullscreen map as portal to document body
+        typeof document !== "undefined" ? (
+          ReactDOM.createPortal(
+            <div className={mapContainerClass} style={{ height: mapHeight }}>
+              <MapContainer
+                center={center}
+                zoom={memories.length > 0 ? 12 : 11}
+                style={{ height: "100%", width: "100%" }}
+                zoomControl={true}
               >
-                <Popup className="memory-popup" maxWidth={400}>
-                  <div className="p-2 min-w-[320px] max-w-[380px]">
-                    {group.memories.length === 1 ? (
-                      // Single memory popup
-                      <SingleMemoryPopup
-                        memory={group.memories[0]}
-                        onViewDetails={() => setSelectedMemory(group.memories[0])}
-                        imageErrors={imageErrors}
-                        onImageError={handleImageError}
-                        getImageUrl={getImageUrl}
-                        isFavorited={isFavorited}
-                      />
-                    ) : (
-                      // Multiple memories popup
-                      <MultipleMemoriesPopup
-                        memories={group.memories}
-                        onViewAll={() => setSelectedMemories(group.memories)}
-                        onViewSingle={(memory) => setSelectedMemory(memory)}
-                        imageErrors={imageErrors}
-                        onImageError={handleImageError}
-                        getImageUrl={getImageUrl}
-                        isFavorited={isFavorited}
-                      />
-                    )}
-                  </div>
-                </Popup>
-              </Marker>
-            )
-          })}
+                {/* All the map content */}
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                {/* Rest of map content stays the same */}
+                {memoryGroups.map((group, groupIndex) => {
+                  const isFavorited =
+                    personalMap && group.memories.some((memory) => isMemoryLocationFavorited(memory, favorites))
 
-          {/* Favorite site markers (only those without memories) */}
-          {personalMap &&
-            favoritesWithoutMemories.map((favorite) => (
-              <Marker
-                key={`favorite-${favorite.siteId}`}
-                position={[favorite.coordinates.lat, favorite.coordinates.lng]}
-                icon={createFavoriteIcon()}
-              >
-                <Popup className="favorite-popup" maxWidth={400}>
-                  <div className="p-2 min-w-[320px] max-w-[380px]">
-                    <FavoriteSitePopup favorite={favorite} onShowSiteDetails={() => handleShowSiteDetails(favorite.siteId)} />
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
+                  return (
+                    <Marker
+                      key={groupIndex}
+                      position={[group.center.lat, group.center.lng]}
+                      icon={createMemoryIcon(group.memories.length, personalMap, isFavorited)}
+                    >
+                      <Popup className="memory-popup" maxWidth={400}>
+                        <div className="p-2 min-w-[320px] max-w-[380px]">
+                          {group.memories.length === 1 ? (
+                            <SingleMemoryPopup
+                              memory={group.memories[0]}
+                              onViewDetails={() => setSelectedMemory(group.memories[0])}
+                              imageErrors={imageErrors}
+                              onImageError={handleImageError}
+                              getImageUrl={getImageUrl}
+                              isFavorited={isFavorited}
+                            />
+                          ) : (
+                            <MultipleMemoriesPopup
+                              memories={group.memories}
+                              onViewAll={() => setSelectedMemories(group.memories)}
+                              onViewSingle={(memory) => setSelectedMemory(memory)}
+                              imageErrors={imageErrors}
+                              onImageError={handleImageError}
+                              getImageUrl={getImageUrl}
+                              isFavorited={isFavorited}
+                            />
+                          )}
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )
+                })}
 
-          {/* Map bounds adjuster */}
-          <MapBoundsAdjuster memories={memories} favorites={personalMap ? favorites : []} />
-        </MapContainer>
+                {personalMap &&
+                  favoritesWithoutMemories.map((favorite) => (
+                    <Marker
+                      key={`favorite-${favorite.siteId}`}
+                      position={[favorite.coordinates.lat, favorite.coordinates.lng]}
+                      icon={createFavoriteIcon()}
+                    >
+                      <Popup className="favorite-popup" maxWidth={400}>
+                        <div className="p-2 min-w-[320px] max-w-[380px]">
+                          <FavoriteSitePopup
+                            favorite={favorite}
+                            onShowSiteDetails={() => handleShowSiteDetails(favorite.siteId)}
+                          />
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
 
-        {/* Floating stats */}
-        {!isFullscreen && (
-          <div className="absolute top-4 right-4 z-[1000]">
-            <Card className="bg-white/90 dark:bg-black/80 backdrop-blur-sm border-emerald-200">
-              <CardContent className="p-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <Sparkles className="h-4 w-4 text-emerald-500" />
-                  <span className="font-medium">{memories.length}</span>
-                  <span className="text-muted-foreground">{personalMap ? "Memories" : "Perfect Moments"}</span>
-                  {personalMap && favorites.length > 0 && (
-                    <>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="font-medium text-amber-600">{favoritesWithoutMemories.length}</span>
-                      <span className="text-muted-foreground">Favorites</span>
-                    </>
-                  )}
-                  {memoryGroups.length !== memories.length && (
-                    <>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="font-medium">{memoryGroups.length}</span>
-                      <span className="text-muted-foreground">locations</span>
-                    </>
-                  )}
+                <MapBoundsAdjuster memories={memories} favorites={personalMap ? favorites : []} />
+              </MapContainer>
+
+              {/* Fullscreen controls */}
+              <div className="absolute top-4 left-4 z-[1000] flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={toggleFullscreen}
+                  className="bg-white/90 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800 shadow-lg"
+                >
+                  <Minimize2 className="h-4 w-4 mr-2" />
+                  Exit Fullscreen
+                </Button>
+                <div className="text-xs text-gray-500 bg-white/90 dark:bg-gray-800/90 px-3 py-2 rounded-md shadow-lg">
+                  Press <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs">Esc</kbd> to exit
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+              </div>
+            </div>,
+            document.body,
+          )
+        ) : null
+      ) : (
+        // Regular map container
+        <div className={mapContainerClass} style={{ height: mapHeight }}>
+          {/* All the existing map content */}
+          <MapContainer
+            center={center}
+            zoom={memories.length > 0 ? 12 : 11}
+            style={{ height: "100%", width: "100%" }}
+            zoomControl={true}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
 
-        {/* Legend for personal maps */}
-        {personalMap && (memories.length > 0 || favorites.length > 0) && !isFullscreen && (
-          <div className="absolute bottom-4 left-4 z-[1000]">
-            <Card className="bg-white/90 dark:bg-black/80 backdrop-blur-sm border-emerald-200">
-              <CardContent className="p-3">
-                <div className="space-y-2 text-xs">
-                  <div className="font-medium text-muted-foreground mb-2">Map Legend</div>
-                  {memories.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-gradient-to-br from-pink-500 to-pink-600 rounded-full flex items-center justify-center text-white text-xs">
-                        ✨
-                      </div>
-                      <span className="text-muted-foreground">Your Memories</span>
+            {memoryGroups.map((group, groupIndex) => {
+              const isFavorited =
+                personalMap && group.memories.some((memory) => isMemoryLocationFavorited(memory, favorites))
+
+              return (
+                <Marker
+                  key={groupIndex}
+                  position={[group.center.lat, group.center.lng]}
+                  icon={createMemoryIcon(group.memories.length, personalMap, isFavorited)}
+                >
+                  <Popup className="memory-popup" maxWidth={400}>
+                    <div className="p-2 min-w-[320px] max-w-[380px]">
+                      {group.memories.length === 1 ? (
+                        <SingleMemoryPopup
+                          memory={group.memories[0]}
+                          onViewDetails={() => setSelectedMemory(group.memories[0])}
+                          imageErrors={imageErrors}
+                          onImageError={handleImageError}
+                          getImageUrl={getImageUrl}
+                          isFavorited={isFavorited}
+                        />
+                      ) : (
+                        <MultipleMemoriesPopup
+                          memories={group.memories}
+                          onViewAll={() => setSelectedMemories(group.memories)}
+                          onViewSingle={(memory) => setSelectedMemory(memory)}
+                          imageErrors={imageErrors}
+                          onImageError={handleImageError}
+                          getImageUrl={getImageUrl}
+                          isFavorited={isFavorited}
+                        />
+                      )}
                     </div>
-                  )}
-                  {favoritesWithoutMemories.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs">
-                        ❤️
-                      </div>
-                      <span className="text-muted-foreground">Favorite Sites</span>
+                  </Popup>
+                </Marker>
+              )
+            })}
+
+            {personalMap &&
+              favoritesWithoutMemories.map((favorite) => (
+                <Marker
+                  key={`favorite-${favorite.siteId}`}
+                  position={[favorite.coordinates.lat, favorite.coordinates.lng]}
+                  icon={createFavoriteIcon()}
+                >
+                  <Popup className="favorite-popup" maxWidth={400}>
+                    <div className="p-2 min-w-[320px] max-w-[380px]">
+                      <FavoriteSitePopup
+                        favorite={favorite}
+                        onShowSiteDetails={() => handleShowSiteDetails(favorite.siteId)}
+                      />
                     </div>
-                  )}
-                  {memories.some((memory) => isMemoryLocationFavorited(memory, favorites)) && (
-                    <div className="flex items-center gap-2">
-                      <div className="relative w-4 h-4 bg-gradient-to-br from-pink-500 to-pink-600 rounded-full flex items-center justify-center text-white text-xs">
-                        ✨<div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full text-xs">❤️</div>
-                      </div>
-                      <span className="text-muted-foreground">Memory + Favorite</span>
+                  </Popup>
+                </Marker>
+              ))}
+
+            <MapBoundsAdjuster memories={memories} favorites={personalMap ? favorites : []} />
+          </MapContainer>
+
+          {/* Regular view controls */}
+          {!isFullscreen && (
+            <>
+              {/* Floating stats */}
+              <div className="absolute top-4 right-4 z-[1000]">
+                <Card className="bg-white/90 dark:bg-black/80 backdrop-blur-sm border-emerald-200">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Sparkles className="h-4 w-4 text-emerald-500" />
+                      <span className="font-medium">{memories.length}</span>
+                      <span className="text-muted-foreground">{personalMap ? "Memories" : "Perfect Moments"}</span>
+                      {personalMap && favorites.length > 0 && (
+                        <>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="font-medium text-amber-600">{favoritesWithoutMemories.length}</span>
+                          <span className="text-muted-foreground">Favorites</span>
+                        </>
+                      )}
+                      {memoryGroups.length !== memories.length && (
+                        <>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="font-medium">{memoryGroups.length}</span>
+                          <span className="text-muted-foreground">locations</span>
+                        </>
+                      )}
                     </div>
-                  )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Legend for personal maps */}
+              {personalMap && (memories.length > 0 || favorites.length > 0) && (
+                <div className="absolute bottom-4 left-4 z-[1000]">
+                  <Card className="bg-white/90 dark:bg-black/80 backdrop-blur-sm border-emerald-200">
+                    <CardContent className="p-3">
+                      <div className="space-y-2 text-xs">
+                        <div className="font-medium text-muted-foreground mb-2">Map Legend</div>
+                        {memories.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 bg-gradient-to-br from-pink-500 to-pink-600 rounded-full flex items-center justify-center text-white text-xs">
+                              ✨
+                            </div>
+                            <span className="text-muted-foreground">Your Memories</span>
+                          </div>
+                        )}
+                        {favoritesWithoutMemories.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs">
+                              ❤️
+                            </div>
+                            <span className="text-muted-foreground">Favorite Sites</span>
+                          </div>
+                        )}
+                        {memories.some((memory) => isMemoryLocationFavorited(memory, favorites)) && (
+                          <div className="flex items-center gap-2">
+                            <div className="relative w-4 h-4 bg-gradient-to-br from-pink-500 to-pink-600 rounded-full flex items-center justify-center text-white text-xs">
+                              ✨
+                              <div className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full text-xs">
+                                ❤️
+                              </div>
+                            </div>
+                            <span className="text-muted-foreground">Memory + Favorite</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+              )}
+            </>
+          )}
 
-        {/* Fullscreen toggle button */}
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={toggleFullscreen}
-          className="absolute bottom-4 right-4 z-[1000] bg-white/90 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800 shadow-lg border-gray-200 dark:border-gray-700"
-          title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-        >
-          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-        </Button>
+          {/* Fullscreen toggle button */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleFullscreen}
+            className="absolute bottom-4 right-4 z-[1000] bg-white/90 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800 shadow-lg border-gray-200 dark:border-gray-700"
+            title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          >
+            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </Button>
+        </div>
+      )}
 
-        {/* Fullscreen overlay controls */}
-        {isFullscreen && (
-          <div className="absolute top-4 left-4 z-[1000] flex gap-2">
-            <Button
-              variant="outline"
-              onClick={toggleFullscreen}
-              className="bg-white/90 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800 shadow-lg"
-            >
-              <Minimize2 className="h-4 w-4 mr-2" />
-              Exit Fullscreen
-            </Button>
-            <div className="text-xs text-gray-500 bg-white/90 dark:bg-gray-800/90 px-3 py-2 rounded-md shadow-lg">
-              Press <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs">Esc</kbd> to exit
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Single Memory Detail Modal */}
+      {/* Modals - these should render outside the map container */}
       {selectedMemory && (
         <MemoryDetailModal
           memory={selectedMemory}
@@ -578,10 +664,10 @@ export function TinyPerfectMap({
           currentUserId={currentUserId}
           onMemoryDeleted={onMemoryDeleted}
           onShowSiteDetails={() => handleShowSiteDetails(selectedMemory.siteId)}
+          className={isFullscreen ? "z-[9000]" : ""}
         />
       )}
 
-      {/* Multiple Memories Modal */}
       {selectedMemories.length > 0 && (
         <MultipleMemoriesModal
           memories={selectedMemories}
@@ -594,11 +680,18 @@ export function TinyPerfectMap({
           imageErrors={imageErrors}
           onImageError={handleImageError}
           getImageUrl={getImageUrl}
+          className={isFullscreen ? "z-[9000]" : ""}
         />
       )}
 
-      {/* Site Details Modal */}
-      {selectedSite && <SiteDetailsModal site={selectedSite} open={showSiteModal} onOpenChange={setShowSiteModal} />}
+      {selectedSite && (
+        <SiteDetailsModal
+          site={selectedSite}
+          open={showSiteModal}
+          onOpenChange={setShowSiteModal}
+          className={isFullscreen ? "z-[9000]" : ""}
+        />
+      )}
     </div>
   )
 }
@@ -823,6 +916,7 @@ function MultipleMemoriesModal({
   imageErrors,
   onImageError,
   getImageUrl,
+  className,
 }: {
   memories: UserMemory[]
   open: boolean
@@ -831,12 +925,13 @@ function MultipleMemoriesModal({
   imageErrors: Set<string>
   onImageError: (imageId: string) => void
   getImageUrl: (memoryId: string, imageId: string) => string
+  className?: string
 }) {
   const siteName = memories[0]?.siteName || "This location"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh]">
+      <DialogContent className={`max-w-2xl max-h-[80vh] ${className || ""}`}>
         <div className="space-y-4">
           {/* Header */}
           <div className="flex items-center gap-2">
@@ -963,6 +1058,7 @@ function MemoryDetailModal({
   onMemoryDeleted,
   onShowSiteDetails,
   isFavorited = false,
+  className,
 }: {
   memory: UserMemory
   open: boolean
@@ -973,6 +1069,7 @@ function MemoryDetailModal({
   onMemoryDeleted?: () => void
   onShowSiteDetails?: () => void
   isFavorited?: boolean
+  className?: string
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -1020,7 +1117,7 @@ function MemoryDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+      <DialogContent className={`max-w-4xl max-h-[90vh] p-0 ${className || ""}`}>
         <div className="flex flex-col h-full max-h-[90vh]">
           {/* Header */}
           <div className="p-6 pb-4 border-b">

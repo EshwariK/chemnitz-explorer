@@ -45,6 +45,7 @@ interface SiteDetailsModalProps {
   site: CulturalSite | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  className?: string // <-- allow className prop
 }
 
 const categoryColors = {
@@ -215,7 +216,7 @@ const getDirectionsUrl = (site: CulturalSite): string => {
   return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`
 }
 
-export function SiteDetailsModal({ site, open, onOpenChange }: SiteDetailsModalProps) {
+export function SiteDetailsModal({ site, open, onOpenChange, className }: SiteDetailsModalProps) {
   const [showRawData, setShowRawData] = useState(false)
   const [activeTab, setActiveTab] = useState("details")
   const { toggleFavorite, isFavorited, isFavoriting } = useFavorites()
@@ -399,7 +400,7 @@ export function SiteDetailsModal({ site, open, onOpenChange }: SiteDetailsModalP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+      <DialogContent className={`max-w-4xl max-h-[90vh] p-0 ${className || ""}`}>
         <ScrollArea className="max-h-[90vh]">
           <div className="p-6">
             <DialogHeader className="space-y-4">
