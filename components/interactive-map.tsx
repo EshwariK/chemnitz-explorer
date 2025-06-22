@@ -7,7 +7,18 @@ import "leaflet/dist/leaflet.css"
 import type { CulturalSite } from "@/lib/cultural-sites-service"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MapPin, ExternalLink, Phone, Globe, Navigation, Info, Heart, Loader2 } from "lucide-react"
+import {
+  MapPin,
+  ExternalLink,
+  Phone,
+  Globe,
+  Navigation,
+  Info,
+  Heart,
+  Loader2,
+  Maximize2,
+  Minimize2,
+} from "lucide-react"
 import { LocationControl } from "./location-control"
 import { SiteDetailsModal } from "./site-details-modal"
 import { useGeolocation } from "@/hooks/use-geolocation"
@@ -202,6 +213,7 @@ export function InteractiveMap({
   const [isClient, setIsClient] = useState(false)
   const [selectedSite, setSelectedSite] = useState<CulturalSite | null>(null)
   const [detailsModalOpen, setDetailsModalOpen] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const { latitude, longitude, accuracy } = useGeolocation()
 
   const { toggleFavorite, isFavorited, isFavoriting } = useFavorites()
@@ -209,6 +221,32 @@ export function InteractiveMap({
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  // Handle fullscreen toggle
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen)
+  }
+
+  // Handle escape key to exit fullscreen
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && isFullscreen) {
+        setIsFullscreen(false)
+      }
+    }
+
+    if (isFullscreen) {
+      document.addEventListener("keydown", handleEscape)
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = "unset"
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape)
+      document.body.style.overflow = "unset"
+    }
+  }, [isFullscreen])
 
   const userLocation = latitude && longitude ? { lat: latitude, lng: longitude } : null
 
@@ -236,10 +274,16 @@ export function InteractiveMap({
       ? ([sites[0].coordinates.lat, sites[0].coordinates.lng] as [number, number])
       : defaultCenter
 
+  const mapContainerClass = isFullscreen
+    ? "fixed inset-0 z-[9999] bg-white dark:bg-gray-900"
+    : `rounded-lg overflow-hidden z-40 border relative ${className}`
+
+  const mapHeight = isFullscreen ? "100vh" : height
+
   return (
     <>
       {/* Map container */}
-      <div className={`rounded-lg overflow-hidden z-40 border relative ${className}`} style={{ height }}>
+      <div className={mapContainerClass} style={{ height: mapHeight }}>
         <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }} zoomControl={true}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -402,6 +446,34 @@ export function InteractiveMap({
           {/* Location control */}
           {showLocationControl && <LocationControl onLocationFound={onLocationFound} showNearby={showNearbySearch} />}
         </MapContainer>
+
+        {/* Fullscreen toggle button */}
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={toggleFullscreen}
+          className="absolute bottom-4 right-4 z-[1000] bg-white/90 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800 shadow-lg border-gray-200 dark:border-gray-700"
+          title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+        >
+          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </Button>
+
+        {/* Fullscreen overlay controls */}
+        {isFullscreen && (
+          <div className="absolute top-4 left-4 z-[1000] flex gap-2">
+            <Button
+              variant="outline"
+              onClick={toggleFullscreen}
+              className="bg-white/90 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800 shadow-lg"
+            >
+              <Minimize2 className="h-4 w-4 mr-2" />
+              Exit Fullscreen
+            </Button>
+            <div className="text-xs text-gray-500 bg-white/90 dark:bg-gray-800/90 px-3 py-2 rounded-md shadow-lg">
+              Press <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs">Esc</kbd> to exit
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Site Details Modal */}

@@ -22,6 +22,8 @@ import {
   Loader2,
   Info,
   Heart,
+  Maximize2,
+  Minimize2,
 } from "lucide-react"
 import type { UserMemory } from "@/lib/memory-service"
 import type { CulturalSite } from "@/lib/cultural-sites-service"
@@ -287,10 +289,37 @@ export function TinyPerfectMap({
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
   const [selectedSite, setSelectedSite] = useState<CulturalSite | null>(null)
   const [showSiteModal, setShowSiteModal] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  // Handle fullscreen toggle
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen)
+  }
+
+  // Handle escape key to exit fullscreen
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && isFullscreen) {
+        setIsFullscreen(false)
+      }
+    }
+
+    if (isFullscreen) {
+      document.addEventListener("keydown", handleEscape)
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = "unset"
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape)
+      document.body.style.overflow = "unset"
+    }
+  }, [isFullscreen])
 
   const handleImageError = (imageId: string) => {
     console.error(`Failed to load image: ${imageId}`)
@@ -334,19 +363,43 @@ export function TinyPerfectMap({
   // Group memories by location
   const memoryGroups = groupMemoriesByLocation(memories)
 
-   // Filter favorites to exclude those that have memories at the same location
+  // Filter favorites to exclude those that have memories at the same location
   const favoritesWithoutMemories = personalMap ? filterFavoritesWithoutMemories(favorites, memories) : []
 
   // Default center (Chemnitz)
   const defaultCenter: [number, number] = [50.8278, 12.9214]
-  const center =
-    memoryGroups.length > 0
-      ? ([memoryGroups[0].center.lat, memoryGroups[0].center.lng] as [number, number])
-      : defaultCenter
+
+  // Calculate center considering both memories and favorites
+  const getAllPoints = () => {
+    const points: [number, number][] = []
+
+    // Add memory points
+    memoryGroups.forEach((group) => {
+      points.push([group.center.lat, group.center.lng])
+    })
+
+    // Add favorite points (only for personal maps)
+    if (personalMap) {
+      favoritesWithoutMemories.forEach((favorite) => {
+        points.push([favorite.coordinates.lat, favorite.coordinates.lng])
+      })
+    }
+
+    return points
+  }
+
+  const allPoints = getAllPoints()
+  const center = allPoints.length > 0 ? (allPoints[0] as [number, number]) : defaultCenter
+
+  const mapContainerClass = isFullscreen
+    ? "fixed inset-0 z-[9999] bg-white dark:bg-gray-900"
+    : "rounded-lg overflow-hidden z-40 border border-emerald-200 relative"
+
+  const mapHeight = isFullscreen ? "100vh" : height
 
   return (
     <div className="relative">
-      <div className="rounded-lg overflow-hidden z-40 border border-emerald-200 relative" style={{ height }}>
+      <div className={mapContainerClass} style={{ height: mapHeight }}>
         <MapContainer
           center={center}
           zoom={memories.length > 0 ? 12 : 11}
@@ -415,39 +468,41 @@ export function TinyPerfectMap({
               </Marker>
             ))}
 
-
           {/* Map bounds adjuster */}
           <MapBoundsAdjuster memories={memories} favorites={personalMap ? favorites : []} />
         </MapContainer>
 
         {/* Floating stats */}
-        <div className="absolute top-4 right-4 z-[1000]">
-          <Card className="bg-white/90 dark:bg-black/80 backdrop-blur-sm border-emerald-200">
-            <CardContent className="p-3">
-              <div className="flex items-center gap-2 text-sm">
-                <Sparkles className="h-4 w-4 text-emerald-500" />
-                <span className="font-medium">{memories.length}</span>
-                <span className="text-muted-foreground">{personalMap ? "Memories" : "Perfect Moments"}</span>
-                {personalMap && favorites.length > 0 && (
-                  <>
-                    <span className="text-muted-foreground">•</span>
-                    <span className="font-medium text-amber-600">{favoritesWithoutMemories.length}</span>
-                    <span className="text-muted-foreground">Favorites</span>
-                  </>
-                )}
-                {memoryGroups.length !== memories.length && (
-                  <>
-                    <span className="text-muted-foreground">•</span>
-                    <span className="font-medium">{memoryGroups.length}</span>
-                    <span className="text-muted-foreground">locations</span>
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {personalMap && (memories.length > 0 || favorites.length > 0) && (
+        {!isFullscreen && (
+          <div className="absolute top-4 right-4 z-[1000]">
+            <Card className="bg-white/90 dark:bg-black/80 backdrop-blur-sm border-emerald-200">
+              <CardContent className="p-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <Sparkles className="h-4 w-4 text-emerald-500" />
+                  <span className="font-medium">{memories.length}</span>
+                  <span className="text-muted-foreground">{personalMap ? "Memories" : "Perfect Moments"}</span>
+                  {personalMap && favorites.length > 0 && (
+                    <>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="font-medium text-amber-600">{favoritesWithoutMemories.length}</span>
+                      <span className="text-muted-foreground">Favorites</span>
+                    </>
+                  )}
+                  {memoryGroups.length !== memories.length && (
+                    <>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="font-medium">{memoryGroups.length}</span>
+                      <span className="text-muted-foreground">locations</span>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Legend for personal maps */}
+        {personalMap && (memories.length > 0 || favorites.length > 0) && !isFullscreen && (
           <div className="absolute bottom-4 left-4 z-[1000]">
             <Card className="bg-white/90 dark:bg-black/80 backdrop-blur-sm border-emerald-200">
               <CardContent className="p-3">
@@ -480,6 +535,34 @@ export function TinyPerfectMap({
                 </div>
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* Fullscreen toggle button */}
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={toggleFullscreen}
+          className="absolute bottom-4 right-4 z-[1000] bg-white/90 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800 shadow-lg border-gray-200 dark:border-gray-700"
+          title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+        >
+          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </Button>
+
+        {/* Fullscreen overlay controls */}
+        {isFullscreen && (
+          <div className="absolute top-4 left-4 z-[1000] flex gap-2">
+            <Button
+              variant="outline"
+              onClick={toggleFullscreen}
+              className="bg-white/90 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800 shadow-lg"
+            >
+              <Minimize2 className="h-4 w-4 mr-2" />
+              Exit Fullscreen
+            </Button>
+            <div className="text-xs text-gray-500 bg-white/90 dark:bg-gray-800/90 px-3 py-2 rounded-md shadow-lg">
+              Press <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-xs">Esc</kbd> to exit
+            </div>
           </div>
         )}
       </div>
