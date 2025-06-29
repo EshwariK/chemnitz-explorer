@@ -30,7 +30,9 @@ export function DeleteUserButton() {
       if (response.ok) {
         toast.success("Account deleted successfully")
         // Sign out the user and redirect to home
-        await signOut({ callbackUrl: "/" })
+        await signOut({ callbackUrl: "/", redirect: true })
+        // Force page reload to clear any cached data
+        window.location.href = "/"
       } else {
         const data = await response.json()
         toast.error(data.error || "Failed to delete account")

@@ -80,6 +80,17 @@ export class UserService {
     return profile as UserProfile | null
   }
 
+  static async userExists(userId: string): Promise<boolean> {
+    const db = await this.getDb()
+    try {
+      const user = await db.collection("users").findOne({ _id: new ObjectId(userId) })
+      return !!user
+    } catch {
+      // If ObjectId is invalid or other error, user doesn't exist
+      return false
+    }
+  }
+
   static async createOrUpdateUserProfile(userId: string, profileData: Partial<UserProfile>): Promise<UserProfile> {
     const db = await this.getDb()
     const now = new Date()
