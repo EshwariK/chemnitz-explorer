@@ -319,10 +319,11 @@ export class UserService {
     try {
       // Delete all user-related data in parallel
       await Promise.all([
-        db.collection("userProfiles").deleteMany({ userId }),
+        db.collection("users").deleteMany({ userId }),
         db.collection("favorites").deleteMany({ userId }),
         db.collection("activities").deleteMany({ userId }),
         db.collection("memories").deleteMany({ userId }),
+        db.collection("accounts").deleteMany({ userId }),
         // Add any other collections that store user data
       ])
 
