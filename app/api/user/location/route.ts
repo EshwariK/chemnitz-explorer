@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth-options"
  * /api/user/location:
  *   get:
  *     summary: Get user's saved location
+ *     description: Retrieve the user's last saved location data including coordinates and address. Returns null if no location has been saved.
  *     tags: [User Management]
  *     security:
  *       - sessionAuth: []
@@ -47,6 +48,7 @@ import { authOptions } from "@/lib/auth-options"
  *               $ref: '#/components/schemas/Error'
  *   post:
  *     summary: Update user's location
+ *     description: Save or update the user's location with coordinates and optional metadata. lat and lng are required and parsed to numbers.
  *     tags: [User Management]
  *     security:
  *       - sessionAuth: []
@@ -107,9 +109,8 @@ import { authOptions } from "@/lib/auth-options"
  */
 export async function GET() {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 })
   }
 
   try {
@@ -117,15 +118,14 @@ export async function GET() {
     return NextResponse.json({ location })
   } catch (error) {
     console.error("Error fetching user location:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal Server Error", code: "INTERNAL_ERROR" }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 })
   }
 
   try {
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
     const { lat, lng, accuracy, address } = body
 
     if (!lat || !lng) {
-      return NextResponse.json({ error: "Latitude and longitude are required" }, { status: 400 })
+      return NextResponse.json({ error: "Latitude and longitude are required", code: "BAD_REQUEST" }, { status: 400 })
     }
 
     const locationData = {
@@ -150,9 +150,8 @@ export async function POST(request: Request) {
       success: true,
       location: locationData,
       message: "Location updated successfully",
-    })
-  } catch (error) {
+    })  } catch (error) {
     console.error("Error updating user location:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal Server Error", code: "INTERNAL_ERROR" }, { status: 500 })
   }
 }

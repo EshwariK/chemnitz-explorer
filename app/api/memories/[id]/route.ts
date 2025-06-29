@@ -38,6 +38,7 @@ import type { UserMemory } from "@/lib/memory-service"
  *               $ref: '#/components/schemas/Error'
  *   put:
  *     summary: Update a memory
+ *     description: Update an existing memory with new data and/or images. Supports both multipart/form-data and application/json content types.
  *     tags: [Memories]
  *     security:
  *       - sessionAuth: []
@@ -51,6 +52,34 @@ import type { UserMemory } from "@/lib/memory-service"
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Optional title for the memory
+ *               note:
+ *                 type: string
+ *                 description: User's reflection about the experience
+ *               tags:
+ *                 type: string
+ *                 description: Comma-separated tags
+ *               isPublic:
+ *                 type: string
+ *                 enum: ['true', 'false']
+ *                 description: Whether the memory should be public
+ *               keptImageIds:
+ *                 type: string
+ *                 description: JSON array of existing image IDs to keep
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: New image files to upload (max 3 total images, 2MB per file)
+ *             required:
+ *               - note
  *         application/json:
  *           schema:
  *             type: object
@@ -89,6 +118,26 @@ import type { UserMemory } from "@/lib/memory-service"
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
+ *       413:
+ *         description: Payload too large - Image files exceed size limits
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Image file.jpg is too large. Please compress it to under 2MB."
+ *       415:
+ *         description: Unsupported media type
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Unsupported content type"
  *       500:
  *         description: Internal server error
  *         content:
@@ -144,13 +193,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const memory = await MemoryService.getMemoryById(id)
 
     if (!memory) {
-      return NextResponse.json({ error: "Memory not found" }, { status: 404 })
+      return NextResponse.json({ error: "Memory not found", code: "NOT_FOUND" }, { status: 404 })
     }
 
     return NextResponse.json(memory)
   } catch (error) {
     console.error("Error fetching memory:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal Server Error", code: "INTERNAL_ERROR" }, { status: 500 })
   }
 }
 
@@ -158,7 +207,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 })
   }
 
   try {
@@ -257,23 +306,23 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     } else if (contentType.includes("application/json")) {
       updates = await request.json()
     } else {
-      return NextResponse.json({ error: "Unsupported content type" }, { status: 415 })
+      return NextResponse.json({ error: "Unsupported content type", code: "UNSUPPORTED_MEDIA" }, { status: 415 })
     }
 
     // Pass the additional parameters for image handling
     const success = await MemoryService.updateMemory(id, session.user.id, updates, {
-      keptImageIds,
+      keptImageIds,      
       newImages
     })
 
     if (!success) {
-      return NextResponse.json({ error: "Memory not found or unauthorized" }, { status: 404 })
+      return NextResponse.json({ error: "Memory not found or unauthorized", code: "NOT_FOUND" }, { status: 404 })
     }
 
     return NextResponse.json({ success: true, message: "Memory updated successfully" })
   } catch (error) {
     console.error("Error updating memory:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal Server Error", code: "INTERNAL_ERROR" }, { status: 500 })
   }
 }
 
@@ -281,7 +330,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 })
   }
 
   try {
@@ -289,12 +338,12 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const success = await MemoryService.deleteMemory(id, session.user.id)
 
     if (!success) {
-      return NextResponse.json({ error: "Memory not found or unauthorized" }, { status: 404 })
+      return NextResponse.json({ error: "Memory not found or unauthorized", code: "NOT_FOUND" }, { status: 404 })
     }
 
     return NextResponse.json({ success: true, message: "Memory deleted successfully" })
   } catch (error) {
     console.error("Error deleting memory:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal Server Error", code: "INTERNAL_ERROR" }, { status: 500 })
   }
 }

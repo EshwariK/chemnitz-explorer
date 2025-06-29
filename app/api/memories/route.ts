@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth-options"
  * /api/memories:
  *   get:
  *     summary: Get memories with various filters
+ *     description: Retrieve memories based on different filters. At least one filter parameter is required (userId, siteId, or public=true).
  *     tags: [Memories]
  *     parameters:
  *       - in: query
@@ -23,8 +24,9 @@ import { authOptions } from "@/lib/auth-options"
  *       - in: query
  *         name: public
  *         schema:
- *           type: boolean
- *         description: Get only public memories
+ *           type: string
+ *           enum: ["true", "false"]
+ *         description: Get only public memories (use "true" to get public memories)
  *     responses:
  *       200:
  *         description: List of memories
@@ -45,9 +47,10 @@ import { authOptions } from "@/lib/auth-options"
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Error'
+ *               $ref: '#/components/schemas/Error' 
  *   post:
  *     summary: Create a new memory
+ *     description: Create a new memory with images and metadata. All form fields are submitted as strings and parsed internally.
  *     tags: [Memories]
  *     security:
  *       - sessionAuth: []
@@ -76,11 +79,13 @@ import { authOptions } from "@/lib/auth-options"
  *                 type: string
  *                 description: Category of the cultural site
  *               lat:
- *                 type: number
- *                 description: Latitude coordinate
+ *                 type: string
+ *                 format: float
+ *                 description: Latitude coordinate (parsed to number)
  *               lng:
- *                 type: number
- *                 description: Longitude coordinate
+ *                 type: string
+ *                 format: float
+ *                 description: Longitude coordinate (parsed to number)
  *               title:
  *                 type: string
  *                 description: Optional title for the memory
@@ -97,8 +102,9 @@ import { authOptions } from "@/lib/auth-options"
  *                 type: string
  *                 description: Comma-separated tags
  *               isPublic:
- *                 type: boolean
- *                 description: Whether memory is publicly visible
+ *                 type: string
+ *                 enum: ['true', 'false']
+ *               description: Whether memory is publicly visible
  *     responses:
  *       200:
  *         description: Memory created successfully
@@ -153,21 +159,19 @@ export async function GET(request: Request) {
       return NextResponse.json(memories)
     } else if (publicOnly) {
       const memories = await MemoryService.getPublicMemories()
-      return NextResponse.json(memories)
-    } else {
-      return NextResponse.json({ error: "Invalid parameters" }, { status: 400 })
+      return NextResponse.json(memories)    } else {
+      return NextResponse.json({ error: "Invalid parameters", code: "BAD_REQUEST" }, { status: 400 })
     }
   } catch (error) {
     console.error("Error fetching memories:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal Server Error", code: "INTERNAL_ERROR" }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 })
   }
 
   try {
@@ -183,7 +187,7 @@ export async function POST(request: Request) {
     const tags = formData.get("tags") ? (formData.get("tags") as string).split(",").map((t) => t.trim()) : []
 
     if (!siteId || !siteName || !note || isNaN(lat) || isNaN(lng)) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+      return NextResponse.json({ error: "Missing required fields", code: "BAD_REQUEST" }, { status: 400 })
     }
 
     // Process uploaded images
@@ -238,7 +242,7 @@ export async function POST(request: Request) {
     console.log(`Created ${images.length} image objects`) // Debug log
 
     if (images.length === 0) {
-      return NextResponse.json({ error: "At least one image is required" }, { status: 400 })
+      return NextResponse.json({ error: "At least one image is required", code: "BAD_REQUEST" }, { status: 400 })
     }
 
     // Final payload size check
@@ -278,16 +282,16 @@ export async function POST(request: Request) {
 
     // Handle specific error types
     if (error instanceof Error) {
-      if (error.message.includes("too large") || error.message.includes("413")) {
-        return NextResponse.json(
+      if (error.message.includes("too large") || error.message.includes("413")) {        return NextResponse.json(
           {
             error: "Request too large. Please use smaller images.",
+            code: "PAYLOAD_TOO_LARGE"
           },
           { status: 413 },
         )
       }
     }
 
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal Server Error", code: "INTERNAL_ERROR" }, { status: 500 })
   }
 }

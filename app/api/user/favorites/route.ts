@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth-options"
  * /api/user/favorites:
  *   get:
  *     summary: Get user's favorite sites
+ *     description: Retrieve the user's favorite cultural sites with optional grouping. Use groupBy=category to group favorites by site category.
  *     tags: [Favorites]
  *     security:
  *       - sessionAuth: []
@@ -47,6 +48,7 @@ import { authOptions } from "@/lib/auth-options"
  *               $ref: '#/components/schemas/Error'
  *   post:
  *     summary: Add a site to favorites
+ *     description: Add a cultural site to the user's favorites list. siteId, siteName, and category are required.
  *     tags: [Favorites]
  *     security:
  *       - sessionAuth: []
@@ -110,6 +112,7 @@ import { authOptions } from "@/lib/auth-options"
  *               $ref: '#/components/schemas/Error'
  *   delete:
  *     summary: Remove a site from favorites
+ *     description: Remove a cultural site from the user's favorites list. siteId query parameter is required.
  *     tags: [Favorites]
  *     security:
  *       - sessionAuth: []
@@ -151,9 +154,8 @@ import { authOptions } from "@/lib/auth-options"
  */
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 })
   }
 
   try {
@@ -169,15 +171,14 @@ export async function GET(request: Request) {
     return NextResponse.json(favorites)
   } catch (error) {
     console.error("Error fetching favorites:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal Server Error", code: "INTERNAL_ERROR" }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 })
   }
 
   try {
@@ -185,7 +186,7 @@ export async function POST(request: Request) {
     const { siteId, siteName, category, description, coordinates } = body
 
     if (!siteId || !siteName || !category) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+      return NextResponse.json({ error: "Missing required fields", code: "BAD_REQUEST" }, { status: 400 })
     }
 
     const result = await UserService.addFavorite(session.user.id, {
@@ -196,18 +197,16 @@ export async function POST(request: Request) {
       coordinates: coordinates || { lat: 0, lng: 0 },
     })
 
-    return NextResponse.json(result)
-  } catch (error) {
+    return NextResponse.json(result)  } catch (error) {
     console.error("Error adding favorite:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal Server Error", code: "INTERNAL_ERROR" }, { status: 500 })
   }
 }
 
 export async function DELETE(request: Request) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 })
   }
 
   try {
@@ -215,13 +214,13 @@ export async function DELETE(request: Request) {
     const siteId = url.searchParams.get("siteId")
 
     if (!siteId) {
-      return NextResponse.json({ error: "Site ID is required" }, { status: 400 })
+      return NextResponse.json({ error: "Site ID is required", code: "BAD_REQUEST" }, { status: 400 })
     }
 
     const result = await UserService.removeFavorite(session.user.id, siteId)
     return NextResponse.json({ success: result })
   } catch (error) {
     console.error("Error removing favorite:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal Server Error", code: "INTERNAL_ERROR" }, { status: 500 })
   }
 }

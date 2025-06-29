@@ -6,31 +6,36 @@ import { CulturalSitesService } from "@/lib/cultural-sites-service"
  * /api/cultural-sites/nearby:
  *   get:
  *     summary: Get cultural sites near a location
+ *     description: Find cultural sites within a specified radius of given coordinates. All query parameters are received as strings and parsed to numbers.
  *     tags: [Cultural Sites]
  *     parameters:
  *       - in: query
  *         name: lat
  *         required: true
  *         schema:
- *           type: number
+ *           type: string
+ *           format: float
  *         description: Latitude of the center point
  *       - in: query
  *         name: lng
  *         required: true
  *         schema:
- *           type: number
+ *           type: string
+ *           format: float
  *         description: Longitude of the center point
  *       - in: query
  *         name: radius
  *         schema:
- *           type: number
- *           default: 5
+ *           type: string
+ *           format: float
+ *           default: "5"
  *         description: Search radius in kilometers
  *       - in: query
  *         name: limit
  *         schema:
- *           type: integer
- *           default: 20
+ *           type: string
+ *           format: integer
+ *           default: "20"
  *           maximum: 100
  *         description: Maximum number of results
  *     responses:

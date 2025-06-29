@@ -47,10 +47,9 @@ const options = {
             name: {
               type: "string",
               description: "Name of the cultural site",
-            },
+            },            
             category: {
               type: "string",
-              enum: ["Theatre", "Museum", "Art", "Tourism Spots", "Monument", "Gallery", "Library"],
               description: "Category of the cultural site",
             },
             description: {

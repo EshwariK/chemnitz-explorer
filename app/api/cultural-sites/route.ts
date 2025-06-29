@@ -7,27 +7,29 @@ import type { SearchFilters } from "@/lib/cultural-sites-service"
  * /api/cultural-sites:
  *   get:
  *     summary: Get cultural sites with filtering and pagination
+ *     description: Get cultural sites with optional filtering and pagination. All query parameters are received as strings and parsed internally.
  *     tags: [Cultural Sites]
  *     parameters:
  *       - in: query
  *         name: page
  *         schema:
- *           type: integer
- *           default: 1
+ *           type: string
+ *           format: integer
+ *           default: "1"
  *         description: Page number for pagination
  *       - in: query
  *         name: limit
  *         schema:
- *           type: integer
- *           default: 20
+ *           type: string
+ *           format: integer
+ *           default: "20"
  *           maximum: 1000
  *         description: Number of results per page
  *       - in: query
  *         name: category
  *         schema:
  *           type: string
- *           enum: [Theatre, Museum, Art, Tourism Spots, Monument, Gallery, Library]
- *         description: Filter by category
+ *         description: Filter by category (use /api/cultural-sites/categories to get available categories)
  *       - in: query
  *         name: search
  *         schema:
@@ -36,32 +38,38 @@ import type { SearchFilters } from "@/lib/cultural-sites-service"
  *       - in: query
  *         name: north
  *         schema:
- *           type: number
+ *           type: string
+ *           format: float
  *         description: Northern boundary for geographic filtering
  *       - in: query
  *         name: south
  *         schema:
- *           type: number
+ *           type: string
+ *           format: float
  *         description: Southern boundary for geographic filtering
  *       - in: query
  *         name: east
  *         schema:
- *           type: number
+ *           type: string
+ *           format: float
  *         description: Eastern boundary for geographic filtering
  *       - in: query
  *         name: west
  *         schema:
- *           type: number
+ *           type: string
+ *           format: float
  *         description: Western boundary for geographic filtering
  *       - in: query
  *         name: wheelchair
  *         schema:
- *           type: boolean
- *         description: Filter for wheelchair accessible sites
+ *           type: string
+ *           enum: ["true", "false"]
+ *         description: Filter for wheelchair accessible sites (converted to accessibility.wheelchair = "yes")
  *       - in: query
  *         name: parking
  *         schema:
- *           type: boolean
+ *           type: string
+ *           enum: ["true", "false"]
  *         description: Filter for sites with parking
  *     responses:
  *       200:

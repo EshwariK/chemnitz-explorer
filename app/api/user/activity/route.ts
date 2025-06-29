@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth-options"
  * /api/user/activity:
  *   get:
  *     summary: Get user's activity history
+ *     description: Retrieve the user's activity history including visits, favorites, memories, and searches. Activities are typically ordered by creation date.
  *     tags: [Activities]
  *     security:
  *       - sessionAuth: []
@@ -34,6 +35,7 @@ import { authOptions } from "@/lib/auth-options"
  *               $ref: '#/components/schemas/Error'
  *   post:
  *     summary: Add a new activity
+ *     description: Record a new user activity such as visiting a site, adding to favorites, creating a memory, or performing a search. All fields are required.
  *     tags: [Activities]
  *     security:
  *       - sessionAuth: []
@@ -74,6 +76,12 @@ import { authOptions } from "@/lib/auth-options"
  *                   type: boolean
  *                 activityId:
  *                   type: string
+ *       400:
+ *         description: Missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       401:
  *         description: Unauthorized
  *         content:
@@ -89,9 +97,8 @@ import { authOptions } from "@/lib/auth-options"
  */
 export async function GET() {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 })
   }
 
   try {
@@ -99,20 +106,22 @@ export async function GET() {
     return NextResponse.json(activities)
   } catch (error) {
     console.error("Error fetching activities:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal Server Error", code: "INTERNAL_ERROR" }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions)
-
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 })
   }
-
   try {
     const body = await request.json()
     const { type, siteId, siteName, category } = body
+
+    if (!type || !siteId || !siteName || !category) {
+      return NextResponse.json({ error: "Missing required fields", code: "BAD_REQUEST" }, { status: 400 })
+    }
 
     const activityId = await UserService.addActivity(session.user.id, {
       type,
@@ -124,6 +133,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, activityId })
   } catch (error) {
     console.error("Error adding activity:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal Server Error", code: "INTERNAL_ERROR" }, { status: 500 })
   }
 }

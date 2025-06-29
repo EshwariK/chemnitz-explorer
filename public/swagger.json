@@ -1,13 +1,9 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Cultural Sites of Chemnitz API",
+    "title": "WhereWeAre API",
     "version": "1.0.0",
-    "description": "Comprehensive API for accessing cultural landmarks, user management, memories, and favorites in Chemnitz",
-    "contact": {
-      "name": "Cultural Explorer Team",
-      "email": "contact@cultural-explorer.com"
-    }
+    "description": "Comprehensive API for accessing cultural landmarks, user management, memories, and favorites in Chemnitz"
   },
   "servers": [
     {
@@ -46,15 +42,6 @@
           },
           "category": {
             "type": "string",
-            "enum": [
-              "Theatre",
-              "Museum",
-              "Art",
-              "Tourism Spots",
-              "Monument",
-              "Gallery",
-              "Library"
-            ],
             "description": "Category of the cultural site"
           },
           "description": {
@@ -492,6 +479,7 @@
     "/api/cultural-sites/nearby": {
       "get": {
         "summary": "Get cultural sites near a location",
+        "description": "Find cultural sites within a specified radius of given coordinates. All query parameters are received as strings and parsed to numbers.",
         "tags": [
           "Cultural Sites"
         ],
@@ -501,7 +489,8 @@
             "name": "lat",
             "required": true,
             "schema": {
-              "type": "number"
+              "type": "string",
+              "format": "float"
             },
             "description": "Latitude of the center point"
           },
@@ -510,7 +499,8 @@
             "name": "lng",
             "required": true,
             "schema": {
-              "type": "number"
+              "type": "string",
+              "format": "float"
             },
             "description": "Longitude of the center point"
           },
@@ -518,8 +508,9 @@
             "in": "query",
             "name": "radius",
             "schema": {
-              "type": "number",
-              "default": 5
+              "type": "string",
+              "format": "float",
+              "default": "5"
             },
             "description": "Search radius in kilometers"
           },
@@ -527,8 +518,9 @@
             "in": "query",
             "name": "limit",
             "schema": {
-              "type": "integer",
-              "default": 20,
+              "type": "string",
+              "format": "integer",
+              "default": "20",
               "maximum": 100
             },
             "description": "Maximum number of results"
@@ -587,6 +579,7 @@
     "/api/cultural-sites": {
       "get": {
         "summary": "Get cultural sites with filtering and pagination",
+        "description": "Get cultural sites with optional filtering and pagination. All query parameters are received as strings and parsed internally.",
         "tags": [
           "Cultural Sites"
         ],
@@ -595,8 +588,9 @@
             "in": "query",
             "name": "page",
             "schema": {
-              "type": "integer",
-              "default": 1
+              "type": "string",
+              "format": "integer",
+              "default": "1"
             },
             "description": "Page number for pagination"
           },
@@ -604,8 +598,9 @@
             "in": "query",
             "name": "limit",
             "schema": {
-              "type": "integer",
-              "default": 20,
+              "type": "string",
+              "format": "integer",
+              "default": "20",
               "maximum": 1000
             },
             "description": "Number of results per page"
@@ -614,18 +609,9 @@
             "in": "query",
             "name": "category",
             "schema": {
-              "type": "string",
-              "enum": [
-                "Theatre",
-                "Museum",
-                "Art",
-                "Tourism Spots",
-                "Monument",
-                "Gallery",
-                "Library"
-              ]
+              "type": "string"
             },
-            "description": "Filter by category"
+            "description": "Filter by category (use /api/cultural-sites/categories to get available categories)"
           },
           {
             "in": "query",
@@ -639,7 +625,8 @@
             "in": "query",
             "name": "north",
             "schema": {
-              "type": "number"
+              "type": "string",
+              "format": "float"
             },
             "description": "Northern boundary for geographic filtering"
           },
@@ -647,7 +634,8 @@
             "in": "query",
             "name": "south",
             "schema": {
-              "type": "number"
+              "type": "string",
+              "format": "float"
             },
             "description": "Southern boundary for geographic filtering"
           },
@@ -655,7 +643,8 @@
             "in": "query",
             "name": "east",
             "schema": {
-              "type": "number"
+              "type": "string",
+              "format": "float"
             },
             "description": "Eastern boundary for geographic filtering"
           },
@@ -663,7 +652,8 @@
             "in": "query",
             "name": "west",
             "schema": {
-              "type": "number"
+              "type": "string",
+              "format": "float"
             },
             "description": "Western boundary for geographic filtering"
           },
@@ -671,15 +661,23 @@
             "in": "query",
             "name": "wheelchair",
             "schema": {
-              "type": "boolean"
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
             },
-            "description": "Filter for wheelchair accessible sites"
+            "description": "Filter for wheelchair accessible sites (converted to accessibility.wheelchair = \"yes\")"
           },
           {
             "in": "query",
             "name": "parking",
             "schema": {
-              "type": "boolean"
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
             },
             "description": "Filter for sites with parking"
           }
@@ -767,6 +765,90 @@
         }
       }
     },
+    "/api/memories/{id}/image/{imageId}": {
+      "get": {
+        "summary": "Get a memory image",
+        "description": "Retrieve a specific image from a memory by ID. Returns raw image data with appropriate Content-Type header, caching headers, and CORS support.",
+        "tags": [
+          "Memories"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Memory ID"
+          },
+          {
+            "in": "path",
+            "name": "imageId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Image ID within the memory"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image file",
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Content-Type": {
+                "description": "Image MIME type",
+                "schema": {
+                  "type": "string",
+                  "example": "image/jpeg"
+                }
+              },
+              "Content-Length": {
+                "description": "Image size in bytes",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "Cache-Control": {
+                "description": "Caching directives",
+                "schema": {
+                  "type": "string",
+                  "example": "public, max-age=31536000, immutable"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Memory or image not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/memories/{id}": {
       "get": {
         "summary": "Get a specific memory by ID",
@@ -819,6 +901,7 @@
       },
       "put": {
         "summary": "Update a memory",
+        "description": "Update an existing memory with new data and/or images. Supports both multipart/form-data and application/json content types.",
         "tags": [
           "Memories"
         ],
@@ -841,6 +924,48 @@
         "requestBody": {
           "required": true,
           "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "description": "Optional title for the memory"
+                  },
+                  "note": {
+                    "type": "string",
+                    "description": "User's reflection about the experience"
+                  },
+                  "tags": {
+                    "type": "string",
+                    "description": "Comma-separated tags"
+                  },
+                  "isPublic": {
+                    "type": "string",
+                    "enum": [
+                      "true",
+                      "false"
+                    ],
+                    "description": "Whether the memory should be public"
+                  },
+                  "keptImageIds": {
+                    "type": "string",
+                    "description": "JSON array of existing image IDs to keep"
+                  },
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    },
+                    "description": "New image files to upload (max 3 total images, 2MB per file)"
+                  }
+                },
+                "required": [
+                  "note"
+                ]
+              }
+            },
             "application/json": {
               "schema": {
                 "type": "object",
@@ -900,6 +1025,38 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload too large - Image files exceed size limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Image file.jpg is too large. Please compress it to under 2MB."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported media type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Unsupported content type"
+                    }
+                  }
                 }
               }
             }
@@ -992,6 +1149,7 @@
     "/api/memories": {
       "get": {
         "summary": "Get memories with various filters",
+        "description": "Retrieve memories based on different filters. At least one filter parameter is required (userId, siteId, or public=true).",
         "tags": [
           "Memories"
         ],
@@ -1016,9 +1174,13 @@
             "in": "query",
             "name": "public",
             "schema": {
-              "type": "boolean"
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
             },
-            "description": "Get only public memories"
+            "description": "Get only public memories (use \"true\" to get public memories)"
           }
         ],
         "responses": {
@@ -1059,6 +1221,7 @@
       },
       "post": {
         "summary": "Create a new memory",
+        "description": "Create a new memory with images and metadata. All form fields are submitted as strings and parsed internally.",
         "tags": [
           "Memories"
         ],
@@ -1096,12 +1259,14 @@
                     "description": "Category of the cultural site"
                   },
                   "lat": {
-                    "type": "number",
-                    "description": "Latitude coordinate"
+                    "type": "string",
+                    "format": "float",
+                    "description": "Latitude coordinate (parsed to number)"
                   },
                   "lng": {
-                    "type": "number",
-                    "description": "Longitude coordinate"
+                    "type": "string",
+                    "format": "float",
+                    "description": "Longitude coordinate (parsed to number)"
                   },
                   "title": {
                     "type": "string",
@@ -1124,9 +1289,13 @@
                     "description": "Comma-separated tags"
                   },
                   "isPublic": {
-                    "type": "boolean",
-                    "description": "Whether memory is publicly visible"
-                  }
+                    "type": "string",
+                    "enum": [
+                      "true",
+                      "false"
+                    ]
+                  },
+                  "description": "Whether memory is publicly visible"
                 }
               }
             }
@@ -1200,6 +1369,7 @@
     "/api/user/activity": {
       "get": {
         "summary": "Get user's activity history",
+        "description": "Retrieve the user's activity history including visits, favorites, memories, and searches. Activities are typically ordered by creation date.",
         "tags": [
           "Activities"
         ],
@@ -1246,6 +1416,7 @@
       },
       "post": {
         "summary": "Add a new activity",
+        "description": "Record a new user activity such as visiting a site, adding to favorites, creating a memory, or performing a search. All fields are required.",
         "tags": [
           "Activities"
         ],
@@ -1313,6 +1484,16 @@
               }
             }
           },
+          "400": {
+            "description": "Missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -1339,6 +1520,7 @@
     "/api/user/favorites": {
       "get": {
         "summary": "Get user's favorite sites",
+        "description": "Retrieve the user's favorite cultural sites with optional grouping. Use groupBy=category to group favorites by site category.",
         "tags": [
           "Favorites"
         ],
@@ -1411,6 +1593,7 @@
       },
       "post": {
         "summary": "Add a site to favorites",
+        "description": "Add a cultural site to the user's favorites list. siteId, siteName, and category are required.",
         "tags": [
           "Favorites"
         ],
@@ -1513,6 +1696,7 @@
       },
       "delete": {
         "summary": "Remove a site from favorites",
+        "description": "Remove a cultural site from the user's favorites list. siteId query parameter is required.",
         "tags": [
           "Favorites"
         ],
@@ -1584,6 +1768,7 @@
     "/api/user/location": {
       "get": {
         "summary": "Get user's saved location",
+        "description": "Retrieve the user's last saved location data including coordinates and address. Returns null if no location has been saved.",
         "tags": [
           "User Management"
         ],
@@ -1650,6 +1835,7 @@
       },
       "post": {
         "summary": "Update user's location",
+        "description": "Save or update the user's location with coordinates and optional metadata. lat and lng are required and parsed to numbers.",
         "tags": [
           "User Management"
         ],
@@ -1748,6 +1934,7 @@
     "/api/user/profile": {
       "get": {
         "summary": "Get user profile",
+        "description": "Retrieve the user's profile information including personal details and preferences. Returns existing profile or basic user object if no profile exists.",
         "tags": [
           "User Management"
         ],
@@ -1791,6 +1978,7 @@
       },
       "post": {
         "summary": "Create or update user profile",
+        "description": "Create a new user profile or update an existing one with personal information and preferences. All fields are optional for updates.",
         "tags": [
           "User Management"
         ],
@@ -1879,6 +2067,7 @@
     "/api/user/stats": {
       "get": {
         "summary": "Get user statistics",
+        "description": "Retrieve comprehensive statistics for the authenticated user including total counts and recent activity.",
         "tags": [
           "User Management"
         ],
