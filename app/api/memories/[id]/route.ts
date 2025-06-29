@@ -186,6 +186,112 @@ import type { UserMemory } from "@/lib/memory-service"
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
+ *   patch:
+ *     summary: Partially update a memory (preserves existing values)
+ *     description: Update specific fields of an existing memory while preserving other existing values. Empty or null values will not overwrite existing data. Supports both multipart/form-data and application/json content types.
+ *     tags: [Memories]
+ *     security:
+ *       - sessionAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Memory ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Optional title for the memory (only updates if provided)
+ *               note:
+ *                 type: string
+ *                 description: User's reflection about the experience (only updates if provided)
+ *               tags:
+ *                 type: string
+ *                 description: Comma-separated tags (only updates if provided)
+ *               isPublic:
+ *                 type: string
+ *                 enum: ['true', 'false']
+ *                 description: Whether the memory should be public (only updates if provided)
+ *               keptImageIds:
+ *                 type: string
+ *                 description: JSON array of existing image IDs to keep (only updates if provided)
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: New image files to upload (max 3 total images, 2MB per file)
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               note:
+ *                 type: string
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               isPublic:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Memory updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Memory not found or unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       413:
+ *         description: Payload too large - Image files exceed size limits
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Image file.jpg is too large. Please compress it to under 2MB."
+ *       415:
+ *         description: Unsupported media type
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Unsupported content type"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -344,6 +450,179 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     return NextResponse.json({ success: true, message: "Memory deleted successfully" })
   } catch (error) {
     console.error("Error deleting memory:", error)
+    return NextResponse.json({ error: "Internal Server Error", code: "INTERNAL_ERROR" }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions)
+
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 })
+  }
+
+  try {
+    const { id } = await params
+      // First, get the existing memory to preserve current values
+    const existingMemory = await MemoryService.getMemoryById(id)
+    if (!existingMemory) {
+      return NextResponse.json({ error: "Memory not found", code: "NOT_FOUND" }, { status: 404 })
+    }
+
+    const contentType = request.headers.get("content-type") || ""
+    const updates: Partial<UserMemory> = {}
+    const newImages: Array<{
+      id: string
+      filename: string
+      originalName: string
+      mimeType: string
+      size: number
+      data: Buffer
+    }> = []
+    let keptImageIds: string[] = []
+    let shouldUpdateImages = false
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData()
+      
+      // Extract basic fields - only update if provided and not empty
+      const title = formData.get("title")?.toString()
+      if (title !== undefined && title !== "") {
+        updates.title = title
+      }
+      
+      const note = formData.get("note")?.toString()
+      if (note !== undefined && note !== "") {
+        updates.note = note
+      }
+      
+      const isPublicStr = formData.get("isPublic")?.toString()
+      if (isPublicStr !== undefined && isPublicStr !== "") {
+        updates.isPublic = isPublicStr === "true"
+      }
+      
+      const tagsStr = formData.get("tags")?.toString()
+      if (tagsStr !== undefined && tagsStr !== "") {
+        updates.tags = tagsStr
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+      }
+      
+      // Extract kept image IDs - only if explicitly provided
+      const keptImageIdsStr = formData.get("keptImageIds")?.toString()
+      if (keptImageIdsStr !== undefined && keptImageIdsStr !== "") {
+        try {
+          keptImageIds = JSON.parse(keptImageIdsStr)
+          shouldUpdateImages = true
+        } catch (e) {
+          console.error("Error parsing keptImageIds:", e)
+          // If parsing fails, keep existing images
+          keptImageIds = existingMemory.images.map(img => img.id)
+        }
+      } else {
+        // If not provided, keep all existing images
+        keptImageIds = existingMemory.images.map(img => img.id)
+      }
+      
+      // Extract new image files
+      const files = formData.getAll("images").filter((f) => f instanceof File) as File[]
+      if (files.length > 0) {
+        shouldUpdateImages = true
+        console.log(`Processing ${files.length} new files, keeping ${keptImageIds.length} existing images`)
+
+        // Check total size before processing
+        const totalSize = files.reduce((sum, file) => sum + file.size, 0)
+        if (totalSize > 6 * 1024 * 1024) {
+          return NextResponse.json(
+            {
+              error: "Total image size too large. Please use smaller images or reduce the number of images.",
+            },
+            { status: 413 },
+          )
+        }
+
+        // Process new image files
+        for (const file of files) {
+          if (file.size > 0) {
+            console.log(`Processing file: ${file.name}, size: ${file.size}, type: ${file.type}`)
+
+            if (file.size > 2 * 1024 * 1024) {
+              return NextResponse.json(
+                {
+                  error: `Image ${file.name} is too large. Please compress it to under 2MB.`,
+                },
+                { status: 413 },
+              )
+            }
+
+            const arrayBuffer = await file.arrayBuffer()
+            const buffer = Buffer.from(arrayBuffer)
+
+            newImages.push({
+              id: crypto.randomUUID(),
+              filename: `${Date.now()}-${file.name}`,
+              originalName: file.name,
+              mimeType: file.type,
+              size: file.size,
+              data: buffer,
+            })
+          }
+        }
+
+        console.log(`Created ${newImages.length} new image objects`)
+
+        // Final payload size check
+        const totalBufferSize = newImages.reduce((sum, img) => sum + img.data.length, 0)
+        if (totalBufferSize > 5 * 1024 * 1024) {
+          return NextResponse.json(
+            {
+              error: "Images are too large for processing. Please use smaller images.",
+            },
+            { status: 413 },
+          )
+        }
+      }
+
+    } else if (contentType.includes("application/json")) {
+      const jsonData = await request.json()
+      
+      // Only update fields that are explicitly provided and not null/empty
+      if (jsonData.title !== undefined && jsonData.title !== null && jsonData.title !== "") {
+        updates.title = jsonData.title
+      }
+      
+      if (jsonData.note !== undefined && jsonData.note !== null && jsonData.note !== "") {
+        updates.note = jsonData.note
+      }
+      
+      if (jsonData.isPublic !== undefined && jsonData.isPublic !== null) {
+        updates.isPublic = jsonData.isPublic
+      }
+      
+      if (jsonData.tags !== undefined && jsonData.tags !== null && Array.isArray(jsonData.tags) && jsonData.tags.length > 0) {
+        updates.tags = jsonData.tags.filter(Boolean)
+      }
+      
+    } else {
+      return NextResponse.json({ error: "Unsupported content type", code: "UNSUPPORTED_MEDIA" }, { status: 415 })
+    }
+
+    // Pass the additional parameters for image handling only if images should be updated
+    const imageOptions = shouldUpdateImages ? {
+      keptImageIds,      
+      newImages
+    } : undefined
+
+    const success = await MemoryService.updateMemory(id, session.user.id, updates, imageOptions)
+
+    if (!success) {
+      return NextResponse.json({ error: "Memory not found or unauthorized", code: "NOT_FOUND" }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true, message: "Memory updated successfully" })
+  } catch (error) {
+    console.error("Error updating memory:", error)
     return NextResponse.json({ error: "Internal Server Error", code: "INTERNAL_ERROR" }, { status: 500 })
   }
 }
