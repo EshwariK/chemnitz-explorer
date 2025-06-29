@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { FavoritesList } from "@/components/favorites-list"
+import { DeleteUserButton } from "@/components/delete-user-button"
 
 export default async function ProfilePage() {
   const user = await requireAuth()
@@ -44,6 +45,19 @@ export default async function ProfilePage() {
                 <h3 className="font-medium text-lg">{user.name}</h3>
                 <p className="text-sm text-muted-foreground">{user.email}</p>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Delete User Profile */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-destructive">Danger Zone</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Once you delete your account, there is no going back. Please be certain.
+              </p>
+              <DeleteUserButton />
             </CardContent>
           </Card>
 

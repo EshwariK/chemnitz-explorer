@@ -311,4 +311,25 @@ export class UserService {
       hasLocation: !!profile?.currentLocation,
     }
   }
+
+  // Delete User and all associated data
+  static async deleteUser(userId: string): Promise<boolean> {
+    const db = await this.getDb()
+
+    try {
+      // Delete all user-related data in parallel
+      await Promise.all([
+        db.collection("userProfiles").deleteMany({ userId }),
+        db.collection("favorites").deleteMany({ userId }),
+        db.collection("activities").deleteMany({ userId }),
+        db.collection("memories").deleteMany({ userId }),
+        // Add any other collections that store user data
+      ])
+
+      return true
+    } catch (error) {
+      console.error("Error deleting user data:", error)
+      return false
+    }
+  }
 }
