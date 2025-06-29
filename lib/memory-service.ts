@@ -119,13 +119,56 @@ export class MemoryService {
       return null
     }
   }
-
   // Update a memory
-  static async updateMemory(memoryId: string, userId: string, updates: Partial<UserMemory>): Promise<boolean> {
+  static async updateMemory(
+    memoryId: string, 
+    userId: string, 
+    updates: Partial<UserMemory>,
+    imageOptions?: {
+      keptImageIds?: string[]
+      newImages?: Array<{
+        id: string
+        filename: string
+        originalName: string
+        mimeType: string
+        size: number
+        data: Buffer
+      }>
+    }
+  ): Promise<boolean> {
     const db = await this.getDb()
     try {
-      // If updating images, convert buffers to Binary
-      if (updates.images) {
+      // If we have image options, we need to handle image merging
+      if (imageOptions && (imageOptions.keptImageIds || imageOptions.newImages)) {
+        // First, get the current memory to access existing images
+        const existingMemory = await db.collection("memories").findOne(
+          { _id: new ObjectId(memoryId), userId }
+        )
+        
+        if (!existingMemory) {
+          return false
+        }        // Start with kept existing images
+        let finalImages: UserMemory["images"] = []
+        
+        if (imageOptions.keptImageIds && imageOptions.keptImageIds.length > 0) {
+          finalImages = existingMemory.images.filter((img: UserMemory["images"][number]) => 
+            imageOptions.keptImageIds!.includes(img.id)
+          )
+        }
+        
+        // Add new images
+        if (imageOptions.newImages && imageOptions.newImages.length > 0) {
+          const processedNewImages = imageOptions.newImages.map((image) => ({
+            ...image,
+            data: new Binary(image.data),
+          }))
+          finalImages = [...finalImages, ...processedNewImages]
+        }
+        
+        // Update the updates object with the final images
+        updates.images = finalImages
+      } else if (updates.images) {
+        // Handle normal image updates (convert buffers to Binary)
         updates.images = updates.images.map((image) => ({
           ...image,
           data: Buffer.isBuffer(image.data) ? new Binary(image.data) : image.data,

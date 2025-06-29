@@ -1,12 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import type React from "react"
+import { useEffect, useState, useRef } from "react"
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import {
   Sparkles,
@@ -17,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
+  Edit,
   Trash2,
   AlertTriangle,
   Loader2,
@@ -24,6 +27,8 @@ import {
   Heart,
   Maximize2,
   Minimize2,
+  Upload,
+  X,
 } from "lucide-react"
 import type { UserMemory } from "@/lib/memory-service"
 import type { CulturalSite } from "@/lib/cultural-sites-service"
@@ -32,6 +37,10 @@ import { toast } from "sonner"
 import { SiteDetailsModal } from "./site-details-modal"
 import type { UserFavorite } from "@/lib/user-service"
 import ReactDOM from "react-dom"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 
 // Fix for default markers
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl
@@ -797,7 +806,7 @@ function SingleMemoryPopup({
           size="sm"
           variant="outline"
           onClick={onViewDetails}
-          className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 border-emerald-200"
+          className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 border-emerald-200 bg-transparent"
         >
           <Eye className="h-3 w-3 mr-1" />
           View
@@ -897,7 +906,7 @@ function MultipleMemoriesPopup({
           size="sm"
           variant="outline"
           onClick={onViewAll}
-          className="flex-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 border-emerald-200"
+          className="flex-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 border-emerald-200 bg-transparent"
         >
           <Users className="h-3 w-3 mr-1" />
           View All {memories.length}
@@ -1074,6 +1083,36 @@ function MemoryDetailModal({
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [editFormData, setEditFormData] = useState({
+    title: memory.title || "",
+    images: memory.images.map((img) => img.id),
+    note: memory.note,
+    tags: memory.tags?.join(", ") || "",
+    isPublic: memory.isPublic,
+  })
+  const [editImages, setEditImages] = useState<File[]>([])
+  const [editImagePreviews, setEditImagePreviews] = useState<string[]>([])
+  const [compressing, setCompressing] = useState(false)
+  const [keptImageIds, setKeptImageIds] = useState<string[]>(memory.images.map((img) => img.id))
+
+  // Reset form data when memory changes or editing starts
+  useEffect(() => {
+    if (isEditing) {
+      setEditFormData({
+        title: memory.title || "",
+        images: memory.images.map((img) => img.id),
+        note: memory.note,
+        tags: memory.tags?.join(", ") || "",
+        isPublic: memory.isPublic,
+      })
+      setKeptImageIds(memory.images.map((img) => img.id))
+      setEditImages([])
+      setEditImagePreviews([])
+    }
+  }, [isEditing, memory])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const getImageUrl = (memoryId: string, imageId: string) => {
     return `/api/memories/${memoryId}/image/${imageId}`
@@ -1085,6 +1124,174 @@ function MemoryDetailModal({
 
   const prevImage = () => {
     setCurrentImageIndex((prev) => (prev - 1 + memory.images.length) % memory.images.length)
+  }
+
+  const compressImage = (file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.8): Promise<File> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement("canvas")
+      const ctx = canvas.getContext("2d")!
+      const img = new window.Image()
+
+      img.onload = () => {
+        let { width, height } = img
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width
+            width = maxWidth
+          }
+        } else {
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height
+            height = maxHeight
+          }
+        }
+
+        canvas.width = width
+        canvas.height = height
+        ctx.drawImage(img, 0, 0, width, height)
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name, {
+                type: "image/jpeg",
+                lastModified: Date.now(),
+              })
+              resolve(compressedFile)
+            } else {
+              resolve(file)
+            }
+          },
+          "image/jpeg",
+          quality,
+        )
+      }
+
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
+  const handleImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+
+    if (files.length + editImages.length > 3) {
+      toast.error("You can upload up to 3 images per memory")
+      return
+    }
+
+    setCompressing(true)
+
+    try {
+      const processedFiles: File[] = []
+      const newPreviews: string[] = []
+
+      for (const file of files) {
+        if (!file.type.startsWith("image/")) {
+          toast.error(`${file.name} is not a valid image file`)
+          continue
+        }
+
+        try {
+          const compressedFile = await compressImage(file, 1200, 1200, 0.8)
+
+          if (compressedFile.size > 2 * 1024 * 1024) {
+            const moreCompressed = await compressImage(file, 800, 800, 0.6)
+            if (moreCompressed.size > 2 * 1024 * 1024) {
+              toast.error(`${file.name} is still too large after compression`)
+              continue
+            }
+            processedFiles.push(moreCompressed)
+          } else {
+            processedFiles.push(compressedFile)
+          }
+
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            newPreviews.push(e.target?.result as string)
+            if (newPreviews.length === processedFiles.length) {
+              setEditImagePreviews((prev) => [...prev, ...newPreviews])
+            }
+          }
+          reader.readAsDataURL(compressedFile)
+        } catch (error) {
+          console.error(`Error processing ${file.name}:`, error)
+        }
+      }
+
+      if (processedFiles.length > 0) {
+        setEditImages((prev) => [...prev, ...processedFiles])
+      }
+    } catch (error) {
+      console.error("Error processing images:", error)
+    } finally {
+      setCompressing(false)
+    }
+  }
+
+  const removeEditImage = (index: number) => {
+    setEditImages((prev) => prev.filter((_, i) => i !== index))
+    setEditImagePreviews((prev) => prev.filter((_, i) => i !== index))
+  }
+  const handleUpdateMemory = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!editFormData.note.trim()) {
+      toast.error("Please write a note about your experience")
+      return
+    }
+
+    // Ensure at least one image remains
+    if (keptImageIds.length === 0 && editImages.length === 0) {
+      toast.error("At least one image is required for a memory")
+      return
+    }
+
+    setIsUpdating(true)
+
+    try {
+      const formDataToSend = new FormData()
+      formDataToSend.append("title", editFormData.title)
+      formDataToSend.append("note", editFormData.note)
+      formDataToSend.append("isPublic", editFormData.isPublic.toString())
+      formDataToSend.append("tags", editFormData.tags)      // Send kept image IDs so backend knows which to keep
+      formDataToSend.append("keptImageIds", JSON.stringify(keptImageIds))
+      console.log("Kept image IDs:", keptImageIds)
+      console.log("New images count:", editImages.length)
+      // Add new images if any
+      editImages.forEach((image) => {
+        formDataToSend.append("images", image)
+      })
+
+      const response = await fetch(`/api/memories/${memory._id}`, {
+        method: "PUT",
+        body: formDataToSend,
+      })
+
+      if (response.ok) {
+        toast.success("Memory updated successfully")
+        setIsEditing(false)
+        onMemoryDeleted?.() // This will refresh the memories list
+        onOpenChange(false) // Close the modal
+      } else {
+        // --- Fix: Check content type before parsing as JSON ---
+        const contentType = response.headers.get("content-type") || ""
+        let errorMsg = "Failed to update memory"
+        if (contentType.includes("application/json")) {
+          const errorData = await response.json()
+          errorMsg = errorData.error || errorMsg
+        } else {
+          const text = await response.text()
+          if (text) errorMsg = text
+        }
+        throw new Error(errorMsg)
+      }
+    } catch (error) {
+      console.error("Error updating memory:", error)
+      toast.error(error instanceof Error ? error.message : "Failed to update memory")
+    } finally {
+      setIsUpdating(false)
+    }
   }
 
   const handleDelete = async () => {
@@ -1138,8 +1345,8 @@ function MemoryDetailModal({
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
                     {new Date(memory.createdAt).toLocaleDateString()}
@@ -1155,22 +1362,42 @@ function MemoryDetailModal({
                       variant="outline"
                       size="sm"
                       onClick={onShowSiteDetails}
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 bg-transparent"
                     >
                       <Info className="h-4 w-4 mr-1" />
-                      Site Details
                     </Button>
                   )}
                   {canDelete && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Delete
-                    </Button>
+                    <>
+                      {!isEditing ? (
+                        <>
+                          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                            <Edit className="h-4 w-4 mr-1" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button variant="outline" size="sm" onClick={() => setIsEditing(false)}>
+                            Cancel
+                          </Button>                          <Button
+                            size="sm"
+                            onClick={handleUpdateMemory}
+                            disabled={isUpdating || !editFormData.note.trim() || (keptImageIds.length === 0 && editImages.length === 0)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                          >
+                            {isUpdating ? "Saving..." : "Save"}
+                          </Button>
+                        </>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1178,7 +1405,7 @@ function MemoryDetailModal({
           </div>
 
           {/* Image Section */}
-          {memory.images.length > 0 && (
+          {memory.images.length > 0 && !isEditing && (
             <div className="relative flex-1 min-h-0 bg-black/5 dark:bg-black/20">
               <div className="relative h-full flex items-center justify-center p-4">
                 {imageErrors.has(memory.images[currentImageIndex].id) ? (
@@ -1268,24 +1495,199 @@ function MemoryDetailModal({
 
           {/* Content Section */}
           <div className="p-6 pt-4 space-y-4">
-            {/* Note */}
-            <div className="space-y-2">
-              <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{memory.note}</p>
-            </div>
+            {!isEditing ? (
+              <>
+                {/* View Mode - Note */}
+                <div className="space-y-2">
+                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{memory.note}</p>
+                </div>
 
-            {/* Tags */}
-            {memory.tags && memory.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {memory.tags.map((tag, index) => (
-                  <Badge
-                    key={index}
-                    variant="outline"
-                    className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-300"
-                  >
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
+                {/* View Mode - Tags */}
+                {memory.tags && memory.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {memory.tags.map((tag, index) => (
+                      <Badge
+                        key={index}
+                        variant="outline"
+                        className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-300"
+                      >
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Edit Mode Form */}
+                <ScrollArea className="h-[400px] pr-4">
+                  <form onSubmit={handleUpdateMemory} className="space-y-6">
+                    {/* New & Existing Images Preview/Remove */}                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">Add or Remove Photos</Label>
+                        <span className="text-xs text-muted-foreground">
+                          {keptImageIds.length + editImages.length} of 3 photos
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        {/* Existing images from DB */}
+                        {memory.images
+                          .filter((img) => keptImageIds.includes(img.id))
+                          .map((img, index) => (
+                            <div key={img.id} className="relative group">
+                              <Image
+                                src={getImageUrl(memory._id?.toString() || '', img.id)}
+                                alt={`Existing image ${index + 1}`}
+                                width={200}
+                                height={96}
+                                className="w-full h-24 object-cover rounded-lg border-2 border-emerald-200"
+                                unoptimized
+                              />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"                                onClick={() => {
+                                  // Only allow removal if there will be at least one image left (existing + new)
+                                  const totalImagesAfterRemoval = (keptImageIds.length - 1) + editImages.length
+                                  if (totalImagesAfterRemoval > 0) {
+                                    setKeptImageIds((prev) => prev.filter((id) => id !== img.id))
+                                  } else {
+                                    toast.error("At least one image is required for a memory")
+                                  }
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                              <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-1 rounded">
+                                Existing
+                              </div>
+                            </div>
+                          ))}
+                        {/* New images to upload */}
+                        {editImagePreviews.map((preview, index) => (
+                          <div key={preview} className="relative group">
+                            <Image
+                              src={preview || "/placeholder.svg"}
+                              alt={`New preview ${index + 1}`}
+                              width={200}
+                              height={96}
+                              className="w-full h-24 object-cover rounded-lg border-2 border-emerald-200"
+                              unoptimized
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => removeEditImage(index)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                            <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-1 rounded">
+                              {(editImages[index]?.size / 1024).toFixed(0)}KB
+                            </div>
+                          </div>
+                        ))}
+                        {/* Add button if less than 3 total images */}
+                        {keptImageIds.length + editImages.length < 3 && (
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={compressing}
+                            className="h-24 border-2 border-dashed border-emerald-300 rounded-lg flex flex-col items-center justify-center text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors disabled:opacity-50"
+                          >
+                            {compressing ? (
+                              <>
+                                <Loader2 className="h-5 w-5 mb-1 animate-spin" />
+                                <span className="text-xs">Processing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="h-5 w-5 mb-1" />
+                                <span className="text-xs">Add Photo</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleImageSelect}
+                        className="hidden"
+                      />
+                    </div>
+
+                    {/* Title */}
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-title" className="text-sm font-medium">
+                        Title <span className="text-muted-foreground">(optional)</span>
+                      </Label>
+                      <Input
+                        id="edit-title"
+                        value={editFormData.title}
+                        onChange={(e) => setEditFormData((prev) => ({ ...prev, title: e.target.value }))}
+                        placeholder="A perfect moment at..."
+                        maxLength={50}
+                        className="border-emerald-200 focus:border-emerald-400"
+                      />
+                    </div>
+
+                    {/* Note */}
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-note" className="text-sm font-medium">
+                        Your reflection <span className="text-red-500">*</span>
+                      </Label>
+                      <Textarea
+                        id="edit-note"
+                        value={editFormData.note}
+                        onChange={(e) => setEditFormData((prev) => ({ ...prev, note: e.target.value }))}
+                        placeholder="What made this moment special? Share your thoughts, feelings, or what caught your attention..."
+                        maxLength={300}
+                        rows={4}
+                        className="border-emerald-200 focus:border-emerald-400 resize-none"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Share your experience in your own words</span>
+                        <span>{editFormData.note.length}/300</span>
+                      </div>
+                    </div>
+
+                    {/* Tags */}
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-tags" className="text-sm font-medium">
+                        Tags <span className="text-muted-foreground">(optional)</span>
+                      </Label>
+                      <Input
+                        id="edit-tags"
+                        value={editFormData.tags}
+                        onChange={(e) => setEditFormData((prev) => ({ ...prev, tags: e.target.value }))}
+                        placeholder="peaceful, inspiring, beautiful..."
+                        className="border-emerald-200 focus:border-emerald-400"
+                      />
+                      <p className="text-xs text-muted-foreground">Separate tags with commas</p>
+                    </div>
+
+                    {/* Privacy */}
+                    <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-black/20 rounded-lg border border-emerald-200">
+                      <div className="space-y-1">
+                        <Label htmlFor="edit-isPublic" className="text-sm font-medium">
+                          Share on the Map of Tiny Perfect Things
+                        </Label>
+                        <p className="text-xs text-muted-foreground">Let others discover your beautiful moment</p>
+                      </div>
+                      <Switch
+                        id="edit-isPublic"
+                        checked={editFormData.isPublic}
+                        onCheckedChange={(checked) => setEditFormData((prev) => ({ ...prev, isPublic: checked }))}
+                      />
+                    </div>
+                  </form>
+                </ScrollArea>
+              </>
             )}
           </div>
         </div>
@@ -1380,7 +1782,7 @@ function FavoriteSitePopup({
           size="sm"
           variant="outline"
           onClick={onShowSiteDetails}
-          className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20 border-amber-200"
+          className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20 border-amber-200 bg-transparent"
         >
           <Eye className="h-3 w-3 mr-1" />
           View Details

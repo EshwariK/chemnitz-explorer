@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { MemoryService } from "@/lib/memory-service"
 import { authOptions } from "@/lib/auth-options"
+import type { UserMemory } from "@/lib/memory-service"
 
 /**
  * @swagger
@@ -162,8 +163,108 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   try {
     const { id } = await params
-    const updates = await request.json()
-    const success = await MemoryService.updateMemory(id, session.user.id, updates)
+    const contentType = request.headers.get("content-type") || ""
+    let updates: Partial<UserMemory> = {}
+    const newImages: Array<{
+      id: string
+      filename: string
+      originalName: string
+      mimeType: string
+      size: number
+      data: Buffer
+    }> = []
+    let keptImageIds: string[] = []
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData()
+      
+      // Extract basic fields
+      updates.title = formData.get("title")?.toString() || ""
+      updates.note = formData.get("note")?.toString() || ""
+      updates.isPublic = formData.get("isPublic") === "true"
+      updates.tags = (formData.get("tags")?.toString() || "")
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+      
+      // Extract kept image IDs
+      const keptImageIdsStr = formData.get("keptImageIds")?.toString()
+      if (keptImageIdsStr) {
+        try {
+          keptImageIds = JSON.parse(keptImageIdsStr)
+        } catch (e) {
+          console.error("Error parsing keptImageIds:", e)
+          keptImageIds = []
+        }
+      }
+      
+      // Extract new image files
+      const files = formData.getAll("images").filter((f) => f instanceof File) as File[]
+      console.log(`Processing ${files.length} new files, keeping ${keptImageIds.length} existing images`)
+
+      // Check total size before processing
+      const totalSize = files.reduce((sum, file) => sum + file.size, 0)
+      if (totalSize > 6 * 1024 * 1024) {
+        return NextResponse.json(
+          {
+            error: "Total image size too large. Please use smaller images or reduce the number of images.",
+          },
+          { status: 413 },
+        )
+      }
+
+      // Process new image files
+      for (const file of files) {
+        if (file.size > 0) {
+          console.log(`Processing file: ${file.name}, size: ${file.size}, type: ${file.type}`)
+
+          if (file.size > 2 * 1024 * 1024) {
+            return NextResponse.json(
+              {
+                error: `Image ${file.name} is too large. Please compress it to under 2MB.`,
+              },
+              { status: 413 },
+            )
+          }
+
+          const arrayBuffer = await file.arrayBuffer()
+          const buffer = Buffer.from(arrayBuffer)
+
+          newImages.push({
+            id: crypto.randomUUID(),
+            filename: `${Date.now()}-${file.name}`,
+            originalName: file.name,
+            mimeType: file.type,
+            size: file.size,
+            data: buffer,
+          })
+        }
+      }
+
+      console.log(`Created ${newImages.length} new image objects`)
+
+      // Final payload size check
+      const totalBufferSize = newImages.reduce((sum, img) => sum + img.data.length, 0)
+      if (totalBufferSize > 5 * 1024 * 1024) {
+        return NextResponse.json(
+          {
+            error: "Images are too large for processing. Please use smaller images.",
+          },
+          { status: 413 },
+        )
+      }
+
+    } else if (contentType.includes("application/json")) {
+      updates = await request.json()
+    } else {
+      return NextResponse.json({ error: "Unsupported content type" }, { status: 415 })
+    }
+
+    // Pass the additional parameters for image handling
+    const success = await MemoryService.updateMemory(id, session.user.id, updates, {
+      keptImageIds,
+      newImages
+    })
 
     if (!success) {
       return NextResponse.json({ error: "Memory not found or unauthorized" }, { status: 404 })
