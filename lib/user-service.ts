@@ -1,5 +1,5 @@
 import clientPromise from "./mongodb"
-import type { ObjectId } from "mongodb"
+import { ObjectId } from "mongodb"
 
 export interface UserFavorite {
   _id?: ObjectId
@@ -319,11 +319,11 @@ export class UserService {
     try {
       // Delete all user-related data in parallel
       await Promise.all([
-        db.collection("users").deleteMany({ userId }),
+        db.collection("users").deleteOne({ _id: new ObjectId(userId) }),
         db.collection("favorites").deleteMany({ userId }),
         db.collection("activities").deleteMany({ userId }),
         db.collection("memories").deleteMany({ userId }),
-        db.collection("accounts").deleteMany({ userId }),
+        db.collection("accounts").deleteMany({ userId: new ObjectId(userId) }),
         // Add any other collections that store user data
       ])
 
