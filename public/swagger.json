@@ -1691,7 +1691,7 @@
     "/api/user/delete": {
       "delete": {
         "summary": "Delete user account",
-        "description": "Permanently delete the authenticated user's account and all associated data including profile, favorites, activities, and memories. This action cannot be undone.",
+        "description": "Permanently delete the authenticated user's account and all associated data. This action cannot be undone.\n\n**Data deleted includes:**\n- User profile and account information\n- All favorite cultural sites\n- Activity history and site interactions\n- User memories and uploads\n- Associated authentication accounts\n\n**Session handling:**\n- Immediately invalidates user session\n- Clears authentication cookies\n- User will be automatically logged out\n\n**Important:** This operation is irreversible and the user will need to create a new account to use the service again.\n",
         "tags": [
           "User Management"
         ],
@@ -1702,7 +1702,7 @@
         ],
         "responses": {
           "200": {
-            "description": "User account deleted successfully",
+            "description": "User account deleted successfully and session invalidated",
             "content": {
               "application/json": {
                 "schema": {
@@ -1719,24 +1719,53 @@
                   }
                 }
               }
+            },
+            "headers": {
+              "Set-Cookie": {
+                "description": "Clears authentication session cookies",
+                "schema": {
+                  "type": "string",
+                  "example": "next-auth.session-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT"
+                }
+              }
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Unauthorized - User not authenticated",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Unauthorized",
+                  "code": "UNAUTHORIZED"
                 }
               }
             }
           },
           "500": {
-            "description": "Internal server error",
+            "description": "Internal server error - Failed to delete account or invalidate session",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "delete_failed": {
+                    "summary": "Account deletion failed",
+                    "value": {
+                      "error": "Failed to delete user account",
+                      "code": "DELETE_FAILED"
+                    }
+                  },
+                  "internal_error": {
+                    "summary": "Server error",
+                    "value": {
+                      "error": "Internal Server Error",
+                      "code": "INTERNAL_ERROR"
+                    }
+                  }
                 }
               }
             }
