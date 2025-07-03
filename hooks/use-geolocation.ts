@@ -39,72 +39,72 @@ export function useGeolocation(options: GeolocationOptions = {}) {
 
   useEffect(() => {
     // --- TESTING ONLY: Set dummy location ---
-    setState((prev) => ({
-      ...prev,
-      loading: false,
-      latitude: 50.83,
-      longitude: 12.92,
-      accuracy: 10,
-      timestamp: Date.now(),
-      error: null,
-    }))
+    // setState((prev) => ({
+    //   ...prev,
+    //   loading: false,
+    //   latitude: 50.83,
+    //   longitude: 12.92,
+    //   accuracy: 10,
+    //   timestamp: Date.now(),
+    //   error: null,
+    // }))
     // --- END TESTING ---
 
-    // // Original geolocation code (commented out for now)
-    // if (!navigator.geolocation) {
-    //   setState((prev) => ({
-    //     ...prev,
-    //     loading: false,
-    //     error: "Geolocation is not supported by this browser.",
-    //   }))
-    //   return
-    // }
+    // Original geolocation code (commented out for now)
+    if (!navigator.geolocation) {
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        error: "Geolocation is not supported by this browser.",
+      }))
+      return
+    }
 
-    // const handleSuccess = (position: GeolocationPosition) => {
-    //   setState({
-    //     loading: false,
-    //     accuracy: position.coords.accuracy,
-    //     altitude: position.coords.altitude,
-    //     altitudeAccuracy: position.coords.altitudeAccuracy,
-    //     heading: position.coords.heading,
-    //     latitude: position.coords.latitude,
-    //     longitude: position.coords.longitude,
-    //     speed: position.coords.speed,
-    //     timestamp: position.timestamp,
-    //     error: null,
-    //   })
-    // }
+    const handleSuccess = (position: GeolocationPosition) => {
+      setState({
+        loading: false,
+        accuracy: position.coords.accuracy,
+        altitude: position.coords.altitude,
+        altitudeAccuracy: position.coords.altitudeAccuracy,
+        heading: position.coords.heading,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        speed: position.coords.speed,
+        timestamp: position.timestamp,
+        error: null,
+      })
+    }
 
-    // const handleError = (error: GeolocationPositionError) => {
-    //   let errorMessage = "An unknown error occurred."
+    const handleError = (error: GeolocationPositionError) => {
+      let errorMessage = "An unknown error occurred."
 
-    //   switch (error.code) {
-    //     case error.PERMISSION_DENIED:
-    //       errorMessage = "Location access denied by user."
-    //       break
-    //     case error.POSITION_UNAVAILABLE:
-    //       errorMessage = "Location information is unavailable."
-    //       break
-    //     case error.TIMEOUT:
-    //       errorMessage = "Location request timed out."
-    //       break
-    //   }
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = "Location access denied by user."
+          break
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = "Location information is unavailable."
+          break
+        case error.TIMEOUT:
+          errorMessage = "Location request timed out."
+          break
+      }
 
-    //   setState((prev) => ({
-    //     ...prev,
-    //     loading: false,
-    //     error: errorMessage,
-    //   }))
-    // }
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        error: errorMessage,
+      }))
+    }
 
-    // const geoOptions: PositionOptions = {
-    //   enableHighAccuracy: options.enableHighAccuracy ?? true,
-    //   timeout: options.timeout ?? 10000,
-    //   maximumAge: options.maximumAge ?? 300000, // 5 minutes
-    // }
+    const geoOptions: PositionOptions = {
+      enableHighAccuracy: options.enableHighAccuracy ?? true,
+      timeout: options.timeout ?? 10000,
+      maximumAge: options.maximumAge ?? 300000, // 5 minutes
+    }
 
-    // // Get current position once
-    // navigator.geolocation.getCurrentPosition(handleSuccess, handleError, geoOptions)
+    // Get current position once
+    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, geoOptions)
 
     return () => {
       if (watchId !== null) {
@@ -114,112 +114,112 @@ export function useGeolocation(options: GeolocationOptions = {}) {
   }, [options.enableHighAccuracy, options.timeout, options.maximumAge, watchId])
 
   const startWatching = () => {
-    // if (!navigator.geolocation || watchId !== null) return
+    if (!navigator.geolocation || watchId !== null) return
 
-    // const geoOptions: PositionOptions = {
-    //   enableHighAccuracy: options.enableHighAccuracy ?? true,
-    //   timeout: options.timeout ?? 10000,
-    //   maximumAge: options.maximumAge ?? 60000, // 1 minute for watching
-    // }
+    const geoOptions: PositionOptions = {
+      enableHighAccuracy: options.enableHighAccuracy ?? true,
+      timeout: options.timeout ?? 10000,
+      maximumAge: options.maximumAge ?? 60000, // 1 minute for watching
+    }
 
-    // const handleSuccess = (position: GeolocationPosition) => {
-    //   setState((prev) => ({
-    //     ...prev,
-    //     loading: false,
-    //     accuracy: position.coords.accuracy,
-    //     altitude: position.coords.altitude,
-    //     altitudeAccuracy: position.coords.altitudeAccuracy,
-    //     heading: position.coords.heading,
-    //     latitude: position.coords.latitude,
-    //     longitude: position.coords.longitude,
-    //     speed: position.coords.speed,
-    //     timestamp: position.timestamp,
-    //     error: null,
-    //   }))
-    // }
+    const handleSuccess = (position: GeolocationPosition) => {
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        accuracy: position.coords.accuracy,
+        altitude: position.coords.altitude,
+        altitudeAccuracy: position.coords.altitudeAccuracy,
+        heading: position.coords.heading,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        speed: position.coords.speed,
+        timestamp: position.timestamp,
+        error: null,
+      }))
+    }
 
-    // const handleError = (error: GeolocationPositionError) => {
-    //   let errorMessage = "An unknown error occurred."
+    const handleError = (error: GeolocationPositionError) => {
+      let errorMessage = "An unknown error occurred."
 
-    //   switch (error.code) {
-    //     case error.PERMISSION_DENIED:
-    //       errorMessage = "Location access denied by user."
-    //       break
-    //     case error.POSITION_UNAVAILABLE:
-    //       errorMessage = "Location information is unavailable."
-    //       break
-    //     case error.TIMEOUT:
-    //       errorMessage = "Location request timed out."
-    //       break
-    //   }
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = "Location access denied by user."
+          break
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = "Location information is unavailable."
+          break
+        case error.TIMEOUT:
+          errorMessage = "Location request timed out."
+          break
+      }
 
-    //   setState((prev) => ({
-    //     ...prev,
-    //     loading: false,
-    //     error: errorMessage,
-    //   }))
-    // }
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        error: errorMessage,
+      }))
+    }
 
-    // const id = navigator.geolocation.watchPosition(handleSuccess, handleError, geoOptions)
-    // setWatchId(id)
+    const id = navigator.geolocation.watchPosition(handleSuccess, handleError, geoOptions)
+    setWatchId(id)
   }
 
   const stopWatching = () => {
-    // if (watchId !== null) {
-    //   navigator.geolocation.clearWatch(watchId)
-    //   setWatchId(null)
-    // }
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId)
+      setWatchId(null)
+    }
   }
 
   const getCurrentLocation = () => {
-    // if (!navigator.geolocation) return
+    if (!navigator.geolocation) return
 
-    // setState((prev) => ({ ...prev, loading: true, error: null }))
+    setState((prev) => ({ ...prev, loading: true, error: null }))
 
-    // const geoOptions: PositionOptions = {
-    //   enableHighAccuracy: options.enableHighAccuracy ?? true,
-    //   timeout: options.timeout ?? 10000,
-    //   maximumAge: 0, // Force fresh location
-    // }
+    const geoOptions: PositionOptions = {
+      enableHighAccuracy: options.enableHighAccuracy ?? true,
+      timeout: options.timeout ?? 10000,
+      maximumAge: 0, // Force fresh location
+    }
 
-    // navigator.geolocation.getCurrentPosition(
-    //   (position) => {
-    //     setState({
-    //       loading: false,
-    //       accuracy: position.coords.accuracy,
-    //       altitude: position.coords.altitude,
-    //       altitudeAccuracy: position.coords.altitudeAccuracy,
-    //       heading: position.coords.heading,
-    //       latitude: position.coords.latitude,
-    //       longitude: position.coords.longitude,
-    //       speed: position.coords.speed,
-    //       timestamp: position.timestamp,
-    //       error: null,
-    //     })
-    //   },
-    //   (error) => {
-    //     let errorMessage = "An unknown error occurred."
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setState({
+          loading: false,
+          accuracy: position.coords.accuracy,
+          altitude: position.coords.altitude,
+          altitudeAccuracy: position.coords.altitudeAccuracy,
+          heading: position.coords.heading,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          speed: position.coords.speed,
+          timestamp: position.timestamp,
+          error: null,
+        })
+      },
+      (error) => {
+        let errorMessage = "An unknown error occurred."
 
-    //     switch (error.code) {
-    //       case error.PERMISSION_DENIED:
-    //         errorMessage = "Location access denied by user."
-    //         break
-    //       case error.POSITION_UNAVAILABLE:
-    //         errorMessage = "Location information is unavailable."
-    //         break
-    //       case error.TIMEOUT:
-    //         errorMessage = "Location request timed out."
-    //         break
-    //     }
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location access denied by user."
+            break
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information is unavailable."
+            break
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out."
+            break
+        }
 
-    //     setState((prev) => ({
-    //       ...prev,
-    //       loading: false,
-    //       error: errorMessage,
-    //     }))
-    //   },
-    //   geoOptions,
-    // )
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: errorMessage,
+        }))
+      },
+      geoOptions,
+    )
   }
 
   return {
